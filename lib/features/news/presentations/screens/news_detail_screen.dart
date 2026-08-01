@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../providers/news_providers.dart';
 import '../widgets/tiptap_renderer.dart';
 import '../../data/models/news_models.dart';
+import '../../../../core/presentation/widgets/auth_network_image.dart';
 
 class NewsDetailScreen extends ConsumerStatefulWidget {
   final String newsId;
@@ -142,8 +143,8 @@ class _NewsDetailScreenState extends ConsumerState<NewsDetailScreen> {
                       if (article.imageUrl != null && article.imageUrl!.isNotEmpty) ...[
                         ClipRRect(
                           borderRadius: BorderRadius.circular(16),
-                          child: Image.network(
-                            article.imageUrl!,
+                          child: AuthNetworkImage(
+                            imageUrl: article.imageUrl!,
                             width: double.infinity,
                             fit: BoxFit.cover,
                           ),

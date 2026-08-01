@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../../../core/presentation/widgets/auth_network_image.dart';
 
 class TipTapHelper {
   /// Витягує чистий текст з JSON TipTap для прев'ю на картках
@@ -135,14 +136,13 @@ class TipTapRenderer extends StatelessWidget {
       case 'image':
         final src = attrs?['src'] as String?;
         if (src == null) return const SizedBox();
-        // Додаємо baseUrl якщо посилання відносне
-        final imageUrl = src.startsWith('http') ? src : '$baseUrl$src';
         return Padding(
           padding: const EdgeInsets.symmetric(vertical: 16.0),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(12),
-            child: Image.network(
-              imageUrl, 
+            child: AuthNetworkImage(
+              imageUrl: src,
+              baseUrl: baseUrl,
               fit: BoxFit.cover,
               errorBuilder: (_, __, ___) => const SizedBox.shrink(),
             ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../data/models/news_models.dart';
 import 'tiptap_renderer.dart';
+import '../../../../core/presentation/widgets/auth_network_image.dart';
 
 class NewsCard extends StatelessWidget {
   final NewsArticle article;
@@ -38,13 +39,9 @@ class NewsCard extends StatelessWidget {
             if (article.imageUrl != null && article.imageUrl!.isNotEmpty)
               AspectRatio(
                 aspectRatio: 16 / 9,
-                child: Image.network(
-                  article.imageUrl!,
+                child: AuthNetworkImage(
+                  imageUrl: article.imageUrl!,
                   fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => Container(
-                    color: theme.colorScheme.surfaceContainerHighest,
-                    child: const Icon(Icons.image_not_supported, size: 48, color: Colors.grey),
-                  ),
                 ),
               ),
             Padding(
