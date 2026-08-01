@@ -24,6 +24,10 @@ final currentUserIdProvider = Provider<String?>((ref) {
   }
 });
 
+final chatMembersProvider = FutureProvider.family<List<ChatMember>, String>((ref, groupId) async {
+  return ref.watch(chatRepositoryProvider).getGroupMembers(groupId);
+});
+
 final chatsListProvider = AsyncNotifierProvider<ChatsListNotifier, List<ChatGroup>>(
   () => ChatsListNotifier(),
 );
@@ -90,6 +94,22 @@ class ChatsListNotifier extends AsyncNotifier<List<ChatGroup>> {
     if (index != -1) {
       groups[index] = groups[index].copyWith(unreadCount: 0);
       state = AsyncValue.data(groups);
+    }
+  }
+
+  Future<void> updateGroupAvatar(String groupId, String filePath) async {
+    try {
+      final newAvatarUrl = await ref.read(chatRepositoryProvider).uploadGroupAvatar(groupId, filePath);
+      if (state.value != null) {
+        final groups = [...state.value!];
+        final index = groups.indexWhere((g) => g.id == groupId);
+        if (index != -1) {
+          groups[index] = groups[index].copyWith(avatarUrl: newAvatarUrl);
+          state = AsyncValue.data(groups);
+        }
+      }
+    } catch (e) {
+      rethrow;
     }
   }
 }

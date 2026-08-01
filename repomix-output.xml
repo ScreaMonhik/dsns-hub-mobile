@@ -204,6 +204,17 @@ lib/
         screens/
           poll_detail_screen.dart
           polls_screen.dart
+    profile/
+      data/
+        repositories/
+          profile_repository.dart
+      presentation/
+        screens/
+          profile_screen.dart
+        widgets/
+          user_profile_button.dart
+      providers/
+        profile_provider.dart
   main.dart
 .gitignore
 .metadata
@@ -782,79 +793,6 @@ import UIKit
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
   }
 }
-</file>
-
-<file path="ios/Runner/Info.plist">
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-	<key>CADisableMinimumFrameDurationOnPhone</key>
-	<true/>
-	<key>CFBundleDevelopmentRegion</key>
-	<string>$(DEVELOPMENT_LANGUAGE)</string>
-	<key>CFBundleDisplayName</key>
-	<string>Dsns Hub</string>
-	<key>CFBundleExecutable</key>
-	<string>$(EXECUTABLE_NAME)</string>
-	<key>CFBundleIdentifier</key>
-	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
-	<key>CFBundleInfoDictionaryVersion</key>
-	<string>6.0</string>
-	<key>CFBundleName</key>
-	<string>dsns_hub</string>
-	<key>CFBundlePackageType</key>
-	<string>APPL</string>
-	<key>CFBundleShortVersionString</key>
-	<string>$(FLUTTER_BUILD_NAME)</string>
-	<key>CFBundleSignature</key>
-	<string>????</string>
-	<key>CFBundleVersion</key>
-	<string>$(FLUTTER_BUILD_NUMBER)</string>
-	<key>LSRequiresIPhoneOS</key>
-	<true/>
-	<key>UIApplicationSceneManifest</key>
-	<dict>
-		<key>UIApplicationSupportsMultipleScenes</key>
-		<false/>
-		<key>UISceneConfigurations</key>
-		<dict>
-			<key>UIWindowSceneSessionRoleApplication</key>
-			<array>
-				<dict>
-					<key>UISceneClassName</key>
-					<string>UIWindowScene</string>
-					<key>UISceneConfigurationName</key>
-					<string>flutter</string>
-					<key>UISceneDelegateClassName</key>
-					<string>$(PRODUCT_MODULE_NAME).SceneDelegate</string>
-					<key>UISceneStoryboardFile</key>
-					<string>Main</string>
-				</dict>
-			</array>
-		</dict>
-	</dict>
-	<key>UIApplicationSupportsIndirectInputEvents</key>
-	<true/>
-	<key>UILaunchStoryboardName</key>
-	<string>LaunchScreen</string>
-	<key>UIMainStoryboardFile</key>
-	<string>Main</string>
-	<key>UISupportedInterfaceOrientations</key>
-	<array>
-		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
-	</array>
-	<key>UISupportedInterfaceOrientations~ipad</key>
-	<array>
-		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationPortraitUpsideDown</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
-	</array>
-</dict>
-</plist>
 </file>
 
 <file path="ios/Runner/Runner-Bridging-Header.h">
@@ -1755,81 +1693,6 @@ Runner/GeneratedPluginRegistrant.*
 !default.perspectivev3
 </file>
 
-<file path="lib/core/presentation/widgets/auth_network_image.dart">
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../storage/secure_storage_provider.dart';
-
-class AuthNetworkImage extends ConsumerWidget {
-  final String imageUrl;
-  final String baseUrl;
-  final BoxFit fit;
-  final double? width;
-  final double? height;
-  final Widget Function(BuildContext, Object, StackTrace?)? errorBuilder;
-
-  const AuthNetworkImage({
-    super.key,
-    required this.imageUrl,
-    this.baseUrl = 'http://10.0.2.2:3000',
-    this.fit = BoxFit.cover,
-    this.width,
-    this.height,
-    this.errorBuilder,
-  });
-
-  String get _fullUrl {
-    if (imageUrl.startsWith('http')) {
-      return imageUrl;
-    }
-    final formattedPath = imageUrl.startsWith('/') ? imageUrl : '/$imageUrl';
-    return '$baseUrl$formattedPath';
-  }
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final storage = ref.watch(secureStorageProvider);
-
-    return FutureBuilder<String?>(
-      future: storage.read(key: 'jwt_token'),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return Container(
-            width: width,
-            height: height,
-            color: Theme.of(context).colorScheme.surfaceContainerHighest,
-            child: const Center(
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
-          );
-        }
-
-        final token = snapshot.data;
-        final headers = <String, String>{};
-        if (token != null && token.isNotEmpty) {
-          headers['Authorization'] = 'Bearer $token';
-        }
-
-        return Image.network(
-          _fullUrl,
-          width: width,
-          height: height,
-          fit: fit,
-          headers: headers,
-          errorBuilder: errorBuilder ??
-              (context, error, stackTrace) => Container(
-                    width: width,
-                    height: height,
-                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                    child: const Icon(Icons.image_not_supported, size: 48, color: Colors.grey),
-                  ),
-        );
-      },
-    );
-  }
-}
-</file>
-
 <file path="lib/core/presentation/widgets/filter_choice_chip.dart">
 import 'package:flutter/material.dart';
 
@@ -1868,21 +1731,6 @@ class FilterChoiceChip extends StatelessWidget {
     );
   }
 }
-</file>
-
-<file path="lib/core/storage/secure_storage_provider.dart">
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-
-final secureStorageProvider = Provider<FlutterSecureStorage>((ref) {
-  return const FlutterSecureStorage(
-    // AndroidOptions with encryptedSharedPreferences is removed as it's deprecated.
-    // The package now automatically uses custom secure ciphers for Android.
-    iOptions: IOSOptions(
-      accessibility: KeychainAccessibility.first_unlock,
-    ),
-  );
-});
 </file>
 
 <file path="lib/features/auth/data/models/auth_model.dart">
@@ -2141,6 +1989,352 @@ abstract class Poll with _$Poll {
 }
 </file>
 
+<file path="lib/features/profile/data/repositories/profile_repository.dart">
+import 'dart:io';
+import 'package:dio/dio.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http_parser/http_parser.dart';
+import '../../../../core/network/dio_provider.dart';
+import '../../../auth/data/models/auth_model.dart';
+
+final profileRepositoryProvider = Provider<ProfileRepository>((ref) {
+  return ProfileRepository(ref.watch(dioProvider));
+});
+
+class ProfileRepository {
+  final Dio _dio;
+
+  ProfileRepository(this._dio);
+
+  Future<UserProfile> getMe() async {
+    final response = await _dio.get('/users/me');
+    return UserProfile.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  Future<String> uploadAvatar(String filePath) async {
+    // 1. Примусово читаємо файл у пам'ять, щоб уникнути проблеми з 0-байт потоком
+    final file = File(filePath);
+    final bytes = await file.readAsBytes();
+    
+    final fileName = filePath.split('/').last;
+    final extension = fileName.split('.').last.toLowerCase();
+    
+    // 2. Встановлюємо правильний MIME-тип
+    String subType = 'jpeg';
+    if (extension == 'png') {
+      subType = 'png';
+    } else if (extension == 'webp') {
+      subType = 'webp';
+    } else if (extension == 'jpg') {
+      subType = 'jpeg';
+    }
+
+    // 3. Створюємо FormData використовуючи байти
+    final formData = FormData.fromMap({
+      'file': MultipartFile.fromBytes(
+        bytes,
+        filename: fileName,
+        contentType: MediaType('image', subType),
+      ),
+    });
+
+    final response = await _dio.patch(
+      '/users/me/avatar', 
+      data: formData,
+    );
+    
+    return response.data['avatarUrl'] as String;
+  }
+}
+</file>
+
+<file path="lib/features/profile/presentation/screens/profile_screen.dart">
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
+import '../../providers/profile_provider.dart';
+import '../../../auth/providers/auth_provider.dart';
+import '../../../../core/presentation/widgets/auth_network_image.dart';
+
+class ProfileScreen extends ConsumerStatefulWidget {
+  const ProfileScreen({super.key});
+
+  @override
+  ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends ConsumerState<ProfileScreen> {
+  final _picker = ImagePicker();
+
+  Future<void> _pickAndUploadImage() async {
+    try {
+      final XFile? image = await _picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 85,
+      );
+      
+      if (image != null) {
+        await ref.read(profileProvider.notifier).uploadAvatar(image.path);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Фото профілю успішно оновлено'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Помилка завантаження фото: ${e.toString().replaceAll("Exception: ", "")}'), 
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final profileState = ref.watch(profileProvider);
+    final theme = Theme.of(context);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Особистий кабінет', style: TextStyle(fontWeight: FontWeight.bold)),
+        centerTitle: true,
+      ),
+      body: profileState.when(
+        data: (profile) {
+          if (profile == null) return const Center(child: Text('Дані відсутні'));
+          
+          return SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Center(
+                  child: Stack(
+                    alignment: Alignment.bottomRight,
+                    children: [
+                      CircleAvatar(
+                        radius: 64,
+                        backgroundColor: theme.colorScheme.primaryContainer,
+                        child: profile.avatarUrl != null
+                            ? ClipOval(
+                                child: AuthNetworkImage(
+                                  imageUrl: profile.avatarUrl!,
+                                  width: 128,
+                                  height: 128,
+                                  fit: BoxFit.cover,
+                                ),
+                              )
+                            : Text(
+                                profile.firstName[0].toUpperCase(),
+                                style: TextStyle(
+                                  fontSize: 48,
+                                  fontWeight: FontWeight.bold,
+                                  color: theme.colorScheme.onPrimaryContainer,
+                                ),
+                              ),
+                      ),
+                      Positioned(
+                        bottom: 0,
+                        right: 0,
+                        child: Material(
+                          color: theme.colorScheme.primary,
+                          shape: const CircleBorder(),
+                          elevation: 4,
+                          child: InkWell(
+                            onTap: profileState.isLoading ? null : _pickAndUploadImage,
+                            customBorder: const CircleBorder(),
+                            child: const Padding(
+                              padding: EdgeInsets.all(12.0),
+                              child: Icon(Icons.camera_alt, color: Colors.white, size: 22),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (profileState.isRefreshing)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 16.0),
+                    child: CircularProgressIndicator(),
+                  ),
+                const SizedBox(height: 32),
+                _buildInfoTile(context, Icons.person_outline, 'ПІБ', '${profile.lastName} ${profile.firstName}'),
+                const SizedBox(height: 16),
+                _buildInfoTile(context, Icons.email_outlined, 'Email', profile.email),
+                const SizedBox(height: 16),
+                _buildInfoTile(context, Icons.work_outline, 'Роль', profile.role),
+                const SizedBox(height: 48),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => ref.read(authStateProvider.notifier).logout(),
+                    icon: Icon(Icons.logout, color: theme.colorScheme.error),
+                    label: Text('Вийти з акаунта', style: TextStyle(color: theme.colorScheme.error, fontWeight: FontWeight.bold)),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      side: BorderSide(color: theme.colorScheme.error),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, _) => Center(child: Text('Помилка завантаження профілю: $err')),
+      ),
+    );
+  }
+
+  Widget _buildInfoTile(BuildContext context, IconData icon, String label, String value) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.primaryContainer,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: theme.colorScheme.primary, size: 24),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+                const SizedBox(height: 4),
+                Text(value, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+</file>
+
+<file path="lib/features/profile/presentation/widgets/user_profile_button.dart">
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import '../../providers/profile_provider.dart';
+import '../../../../core/presentation/widgets/auth_network_image.dart';
+
+class UserProfileButton extends ConsumerWidget {
+  const UserProfileButton({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final profileState = ref.watch(profileProvider);
+
+    return Padding(
+      padding: const EdgeInsets.only(right: 12.0),
+      child: GestureDetector(
+        onTap: () => context.push('/profile'),
+        child: profileState.when(
+          data: (profile) => CircleAvatar(
+            radius: 18,
+            backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+            child: profile != null && profile.avatarUrl != null
+                ? ClipOval(
+                    child: AuthNetworkImage(
+                      imageUrl: profile.avatarUrl!,
+                      width: 36,
+                      height: 36,
+                      fit: BoxFit.cover,
+                    ),
+                  )
+                : Text(
+                    profile?.firstName[0].toUpperCase() ?? '?',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+                    ),
+                  ),
+          ),
+          loading: () => const SizedBox(
+            width: 36,
+            height: 36,
+            child: Padding(
+              padding: EdgeInsets.all(6.0),
+              child: CircularProgressIndicator(strokeWidth: 2.5),
+            ),
+          ),
+          error: (_, __) => CircleAvatar(
+            radius: 18,
+            backgroundColor: Theme.of(context).colorScheme.errorContainer,
+            child: Icon(Icons.error_outline, size: 20, color: Theme.of(context).colorScheme.error),
+          ),
+        ),
+      ),
+    );
+  }
+}
+</file>
+
+<file path="lib/features/profile/providers/profile_provider.dart">
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../data/repositories/profile_repository.dart';
+import '../../auth/data/models/auth_model.dart';
+import '../../auth/providers/auth_provider.dart';
+
+final profileProvider = AsyncNotifierProvider<ProfileNotifier, UserProfile?>(() {
+  return ProfileNotifier();
+});
+
+class ProfileNotifier extends AsyncNotifier<UserProfile?> {
+  @override
+  Future<UserProfile?> build() async {
+    // Слухаємо токен: якщо логаут, обнуляємо профіль
+    final token = ref.watch(currentTokenProvider);
+    if (token == null || token.isEmpty) return null;
+
+    return ref.watch(profileRepositoryProvider).getMe();
+  }
+
+  Future<void> uploadAvatar(String filePath) async {
+    final previousState = state;
+    state = const AsyncValue.loading();
+    try {
+      final newAvatarUrl = await ref.read(profileRepositoryProvider).uploadAvatar(filePath);
+      if (previousState.hasValue && previousState.value != null) {
+        state = AsyncValue.data(previousState.value!.copyWith(avatarUrl: newAvatarUrl));
+      } else {
+        ref.invalidateSelf();
+      }
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      if (previousState.hasValue) {
+        state = previousState;
+      }
+      rethrow;
+    }
+  }
+}
+</file>
+
 <file path="lib/main.dart">
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -2276,6 +2470,159 @@ include: package:flutter_lints/flutter.yaml
 A new Flutter project.
 </file>
 
+<file path="ios/Runner/Info.plist">
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CADisableMinimumFrameDurationOnPhone</key>
+	<true/>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>CFBundleDisplayName</key>
+	<string>Dsns Hub</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>dsns_hub</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(FLUTTER_BUILD_NAME)</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<false/>
+		<key>UISceneConfigurations</key>
+		<dict>
+			<key>UIWindowSceneSessionRoleApplication</key>
+			<array>
+				<dict>
+					<key>UISceneClassName</key>
+					<string>UIWindowScene</string>
+					<key>UISceneConfigurationName</key>
+					<string>flutter</string>
+					<key>UISceneDelegateClassName</key>
+					<string>$(PRODUCT_MODULE_NAME).SceneDelegate</string>
+					<key>UISceneStoryboardFile</key>
+					<string>Main</string>
+				</dict>
+			</array>
+		</dict>
+	</dict>
+	<key>UIApplicationSupportsIndirectInputEvents</key>
+	<true/>
+	<key>UILaunchStoryboardName</key>
+	<string>LaunchScreen</string>
+	<key>UIMainStoryboardFile</key>
+	<string>Main</string>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Додаток потребує доступу до галереї для завантаження фото профілю</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Додаток потребує доступу до камери для створення фото профілю</string>
+</dict>
+</plist>
+</file>
+
+<file path="lib/core/presentation/widgets/auth_network_image.dart">
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../features/auth/providers/auth_provider.dart';
+
+class AuthNetworkImage extends ConsumerWidget {
+  final String imageUrl;
+  final String baseUrl;
+  final BoxFit fit;
+  final double? width;
+  final double? height;
+  final Widget Function(BuildContext, Object, StackTrace?)? errorBuilder;
+
+  const AuthNetworkImage({
+    super.key,
+    required this.imageUrl,
+    this.baseUrl = 'http://10.0.2.2:3000',
+    this.fit = BoxFit.cover,
+    this.width,
+    this.height,
+    this.errorBuilder,
+  });
+
+  String get _fullUrl {
+    // 1. Нормалізуємо бекенд-шляхи Windows (замінюємо \ на /)
+    final normalizedUrl = imageUrl.replaceAll('\\', '/');
+    
+    // 2. Якщо бекенд повертає повний лінк
+    if (normalizedUrl.startsWith('http')) {
+      return normalizedUrl;
+    }
+    
+    // 3. Формуємо правильний URL
+    final formattedPath = normalizedUrl.startsWith('/') ? normalizedUrl : '/$normalizedUrl';
+    return '$baseUrl$formattedPath';
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final token = ref.watch(currentTokenProvider);
+    final headers = <String, String>{};
+    
+    if (token != null && token.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $token';
+    }
+
+    return Image.network(
+      _fullUrl,
+      width: width,
+      height: height,
+      fit: fit,
+      headers: headers,
+      errorBuilder: errorBuilder ??
+          (context, error, stackTrace) => Container(
+                width: width,
+                height: height,
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                child: const Icon(Icons.image_not_supported, size: 48, color: Colors.grey),
+              ),
+    );
+  }
+}
+</file>
+
+<file path="lib/core/storage/secure_storage_provider.dart">
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+
+final secureStorageProvider = Provider<FlutterSecureStorage>((ref) {
+  return const FlutterSecureStorage(
+    aOptions: AndroidOptions(encryptedSharedPreferences: true),
+    iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
+  );
+});
+</file>
+
 <file path="lib/features/auth/data/repositories/auth_repository.dart">
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -2315,55 +2662,6 @@ class AuthRepository {
     } catch (e) {
       throw Exception('Невідома помилка: $e');
     }
-  }
-}
-</file>
-
-<file path="lib/features/auth/providers/auth_provider.dart">
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:dsns_hub/core/network/dio_provider.dart';
-import 'package:dsns_hub/features/auth/data/repositories/auth_repository.dart';
-
-final authStateProvider = StateNotifierProvider<AuthNotifier, AsyncValue<bool>>((ref) {
-  return AuthNotifier(
-    ref.watch(authRepositoryProvider),
-    ref.watch(secureStorageProvider),
-  );
-});
-
-class AuthNotifier extends StateNotifier<AsyncValue<bool>> {
-  final AuthRepository _repository;
-  final FlutterSecureStorage _storage;
-
-  AuthNotifier(this._repository, this._storage) : super(const AsyncValue.loading()) {
-    _checkToken();
-  }
-
-  Future<void> _checkToken() async {
-    final token = await _storage.read(key: 'jwt_token');
-    if (token != null && token.isNotEmpty) {
-      state = const AsyncValue.data(true);
-    } else {
-      state = const AsyncValue.data(false);
-    }
-  }
-
-  Future<void> login(String email, String password) async {
-    state = const AsyncValue.loading();
-    try {
-      final token = await _repository.login(email, password);
-      // Save token to secure storage under the same key Dio interceptor uses
-      await _storage.write(key: 'jwt_token', value: token);
-      state = const AsyncValue.data(true);
-    } catch (e, st) {
-      state = AsyncValue.error(e, st);
-    }
-  }
-
-  Future<void> logout() async {
-    await _storage.delete(key: 'jwt_token');
-    state = const AsyncValue.data(false);
   }
 }
 </file>
@@ -2518,26 +2816,82 @@ class ChatRepository {
 }
 </file>
 
+<file path="lib/features/auth/providers/auth_provider.dart">
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../../../core/storage/secure_storage_provider.dart';
+import '../data/repositories/auth_repository.dart';
+
+final currentTokenProvider = StateProvider<String?>((ref) => null);
+
+final authStateProvider = StateNotifierProvider<AuthNotifier, AsyncValue<bool>>((ref) {
+  return AuthNotifier(
+    ref.watch(authRepositoryProvider),
+    ref.watch(secureStorageProvider),
+    ref,
+  );
+});
+
+class AuthNotifier extends StateNotifier<AsyncValue<bool>> {
+  final AuthRepository _repository;
+  final FlutterSecureStorage _storage;
+  final Ref _ref;
+
+  AuthNotifier(this._repository, this._storage, this._ref) : super(const AsyncValue.loading()) {
+    _checkToken();
+  }
+
+  Future<void> _checkToken() async {
+    final token = await _storage.read(key: 'jwt_token');
+    if (token != null && token.isNotEmpty) {
+      _ref.read(currentTokenProvider.notifier).state = token;
+      state = const AsyncValue.data(true);
+    } else {
+      state = const AsyncValue.data(false);
+    }
+  }
+
+  Future<void> login(String email, String password) async {
+    state = const AsyncValue.loading();
+    try {
+      final token = await _repository.login(email, password);
+      await _storage.write(key: 'jwt_token', value: token);
+      _ref.read(currentTokenProvider.notifier).state = token;
+      state = const AsyncValue.data(true);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
+  }
+
+  Future<void> logout() async {
+    try {
+      await _storage.delete(key: 'jwt_token');
+    } catch (_) {
+      // Ігноруємо системні краші стораджа, щоб гарантовано змінити стейт
+    }
+    _ref.read(currentTokenProvider.notifier).state = null;
+    state = const AsyncValue.data(false);
+  }
+}
+</file>
+
 <file path="lib/features/chats/data/services/chat_socket_service.dart">
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
-import '../../../../core/network/dio_provider.dart';
 import '../models/chat_models.dart';
+import '../../../auth/providers/auth_provider.dart';
 
 final chatSocketServiceProvider = Provider<ChatSocketService>((ref) {
-  final storage = ref.watch(secureStorageProvider);
-  final service = ChatSocketService(storage);
+  final service = ChatSocketService(ref);
   ref.onDispose(() => service.disconnect());
   return service;
 });
 
 class ChatSocketService {
-  final FlutterSecureStorage _storage;
+  final Ref _ref;
   IO.Socket? _socket;
 
-  // Streams for real-time events
   final _messageController = StreamController<ChatMessage>.broadcast();
   final _messageUpdatedController = StreamController<ChatMessage>.broadcast();
   final _messageDeletedController = StreamController<ChatMessage>.broadcast();
@@ -2548,12 +2902,12 @@ class ChatSocketService {
   Stream<ChatMessage> get onMessageDeleted => _messageDeletedController.stream;
   Stream<Map<String, dynamic>> get onMessagesRead => _messagesReadController.stream;
 
-  ChatSocketService(this._storage);
+  ChatSocketService(this._ref);
 
   Future<void> connect() async {
     if (_socket != null && _socket!.connected) return;
 
-    final token = await _storage.read(key: 'jwt_token');
+    final token = _ref.read(currentTokenProvider);
     
     _socket = IO.io(
       'http://10.0.2.2:3000/chat',
@@ -2620,12 +2974,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/models/chat_models.dart';
 import '../../data/repositories/chat_repository.dart';
 import '../../data/services/chat_socket_service.dart';
-import '../../../../core/storage/secure_storage_provider.dart';
+import '../../../auth/providers/auth_provider.dart';
 
-// Provider for Current User ID from JWT
-final currentUserIdProvider = FutureProvider<String?>((ref) async {
-  final storage = ref.watch(secureStorageProvider);
-  final token = await storage.read(key: 'jwt_token');
+final currentUserIdProvider = Provider<String?>((ref) {
+  final token = ref.watch(currentTokenProvider);
   if (token == null || token.isEmpty) return null;
   
   try {
@@ -2635,14 +2987,12 @@ final currentUserIdProvider = FutureProvider<String?>((ref) async {
     final payload = base64Url.normalize(parts[1]);
     final decoded = json.decode(utf8.decode(base64Url.decode(payload)));
     
-    // Fallback to 'sub' if 'id' is not present, depending on backend JWT structure
     return decoded['id'] ?? decoded['sub']; 
   } catch (e) {
     return null;
   }
 });
 
-// Provider for Chat List
 final chatsListProvider = AsyncNotifierProvider<ChatsListNotifier, List<ChatGroup>>(
   () => ChatsListNotifier(),
 );
@@ -2652,7 +3002,14 @@ class ChatsListNotifier extends AsyncNotifier<List<ChatGroup>> {
 
   @override
   Future<List<ChatGroup>> build() async {
+    final token = ref.watch(currentTokenProvider);
     final socket = ref.watch(chatSocketServiceProvider);
+    
+    if (token == null || token.isEmpty) {
+      socket.disconnect();
+      return [];
+    }
+
     await socket.connect();
 
     _newMessageSub?.cancel();
@@ -2664,7 +3021,6 @@ class ChatsListNotifier extends AsyncNotifier<List<ChatGroup>> {
 
     final groups = await ref.watch(chatRepositoryProvider).getGroups();
     
-    // Sort groups by latest message createdAt descending
     groups.sort((a, b) {
       final aDate = a.messages.isNotEmpty ? a.messages.first.createdAt : a.createdAt;
       final bDate = b.messages.isNotEmpty ? b.messages.first.createdAt : b.createdAt;
@@ -2681,8 +3037,7 @@ class ChatsListNotifier extends AsyncNotifier<List<ChatGroup>> {
     final index = groups.indexWhere((g) => g.id == message.groupId);
     if (index != -1) {
       final group = groups[index];
-      // Increment unread count if the message is not from us
-      final currentUserId = ref.read(currentUserIdProvider).value;
+      final currentUserId = ref.read(currentUserIdProvider);
       final isMine = currentUserId != null && message.senderId == currentUserId;
       
       groups[index] = group.copyWith(
@@ -2708,7 +3063,6 @@ class ChatsListNotifier extends AsyncNotifier<List<ChatGroup>> {
   }
 }
 
-// Provider for Chat Messages History (with Pagination)
 final chatMessagesProvider = AsyncNotifierProviderFamily<ChatMessagesNotifier, List<ChatMessage>, String>(
   () => ChatMessagesNotifier(),
 );
@@ -2728,7 +3082,13 @@ class ChatMessagesNotifier extends FamilyAsyncNotifier<List<ChatMessage>, String
 
   @override
   Future<List<ChatMessage>> build(String arg) async {
+    final token = ref.watch(currentTokenProvider);
     final socket = ref.watch(chatSocketServiceProvider);
+    
+    if (token == null || token.isEmpty) {
+      return [];
+    }
+
     await socket.connect();
     socket.joinRoom(arg);
 
@@ -2738,7 +3098,6 @@ class ChatMessagesNotifier extends FamilyAsyncNotifier<List<ChatMessage>, String
     final response = await ref.watch(chatRepositoryProvider).getMessages(arg, page: _currentPage);
     _hasMore = response.meta.page < response.meta.lastPage;
     
-    // Clear unread count globally when opening chat
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(chatsListProvider.notifier).clearUnreadCount(arg);
     });
@@ -2755,8 +3114,7 @@ class ChatMessagesNotifier extends FamilyAsyncNotifier<List<ChatMessage>, String
     _subNew = socket.onNewMessage.listen((msg) {
       if (msg.groupId == arg && state.value != null) {
         state = AsyncValue.data([msg, ...state.value!]);
-        // Automatically mark new incoming messages as read if we are in the chat
-        final currentUserId = ref.read(currentUserIdProvider).value;
+        final currentUserId = ref.read(currentUserIdProvider);
         if (currentUserId != null && msg.senderId != currentUserId) {
           markAsRead([msg.id]);
         }
@@ -2813,7 +3171,6 @@ class ChatMessagesNotifier extends FamilyAsyncNotifier<List<ChatMessage>, String
       _hasMore = response.meta.page < response.meta.lastPage;
       
       final currentMessages = state.value ?? [];
-      // Append older messages to the end of our reversed list
       state = AsyncValue.data([...currentMessages, ...response.data.reversed.toList()]);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
@@ -2831,7 +3188,7 @@ class ChatMessagesNotifier extends FamilyAsyncNotifier<List<ChatMessage>, String
   }
 
   void markAsRead(List<String> messageIds) {
-    final currentUserId = ref.read(currentUserIdProvider).value;
+    final currentUserId = ref.read(currentUserIdProvider);
     if (currentUserId == null) return;
     
     final unreadIds = messageIds.where((id) => !_pendingReadReceipts.contains(id)).toList();
@@ -2914,7 +3271,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final messagesState = ref.watch(chatMessagesProvider(widget.groupId));
-    final currentUserIdAsync = ref.watch(currentUserIdProvider);
+    final currentUserId = ref.watch(currentUserIdProvider);
     final groupsState = ref.watch(chatsListProvider);
     final theme = Theme.of(context);
     
@@ -2925,9 +3282,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
         title: Text(groupName, style: const TextStyle(fontWeight: FontWeight.bold)),
         titleSpacing: 0,
       ),
-      body: currentUserIdAsync.isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : Column(
+      body: Column(
               children: [
                 Expanded(
                   child: messagesState.when(
@@ -2936,8 +3291,6 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                         return const Center(child: Text('Немає повідомлень'));
                       }
                       
-                      final currentUserId = currentUserIdAsync.value;
-
                       return ListView.builder(
                         controller: _scrollController,
                         reverse: true, // Newest at the bottom
@@ -3153,6 +3506,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../providers/chat_providers.dart';
 import '../../../../core/presentation/widgets/auth_network_image.dart';
+import '../../../profile/presentation/widgets/user_profile_button.dart';
 
 class ChatsScreen extends ConsumerWidget {
   const ChatsScreen({super.key});
@@ -3160,14 +3514,14 @@ class ChatsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final chatsState = ref.watch(chatsListProvider);
-    final currentUserIdAsync = ref.watch(currentUserIdProvider);
-    final currentUserId = currentUserIdAsync.value;
+    final currentUserId = ref.watch(currentUserIdProvider);
 
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
         title: const Text('Чати', style: TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: true,
+        actions: const [UserProfileButton()],
       ),
       body: chatsState.when(
         data: (groups) {
@@ -3290,124 +3644,6 @@ class ChatsScreen extends ConsumerWidget {
 }
 </file>
 
-<file path="lib/features/polls/presentation/providers/poll_provider.dart">
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../data/models/poll_model.dart';
-import '../../data/repositories/poll_repository.dart';
-
-final pollsProvider = StateNotifierProvider<PollsNotifier, AsyncValue<List<Poll>>>((ref) {
-  final repository = ref.watch(pollRepositoryProvider);
-  return PollsNotifier(repository)..fetchPolls();
-});
-
-class PollsNotifier extends StateNotifier<AsyncValue<List<Poll>>> {
-  final PollRepository _repository;
-
-  PollsNotifier(this._repository) : super(const AsyncValue.loading());
-
-  Future<void> fetchPolls() async {
-    try {
-      state = const AsyncValue.loading();
-      
-      // Fetch both active (default) and archived polls concurrently
-      final results = await Future.wait([
-        _repository.getPolls(), // GET /polls?status=PUBLISHED (by default)
-        _repository.getPolls(status: 'ARCHIVED'), // GET /polls?status=ARCHIVED
-      ]);
-      
-      final activePolls = results[0];
-      final archivedPolls = results[1];
-      
-      // Combine and remove any potential duplicates by ID
-      final allPolls = [...activePolls, ...archivedPolls];
-      final uniquePolls = {for (var p in allPolls) p.id: p}.values.toList();
-      
-      state = AsyncValue.data(uniquePolls);
-    } catch (e, st) {
-      state = AsyncValue.error(e, st);
-    }
-  }
-
-  Future<void> vote(String pollId, String optionId) async {
-    if (state.value == null) return;
-    final previousState = state.value!;
-
-    try {
-      final updatedPoll = await _repository.vote(pollId, optionId);
-      
-      // Reactively update the specific poll in the list
-      state = AsyncValue.data(
-        previousState.map((p) => p.id == pollId ? updatedPoll : p).toList(),
-      );
-    } catch (e) {
-      rethrow;
-    }
-  }
-}
-
-// Reactive provider for a specific poll detail to keep UI in sync automatically
-final pollDetailProvider = Provider.family<Poll?, String>((ref, id) {
-  final pollsState = ref.watch(pollsProvider);
-  final polls = pollsState.value ?? [];
-  for (final p in polls) {
-    if (p.id == id) return p;
-  }
-  return null;
-});
-</file>
-
-<file path="lib/core/network/dio_provider.dart">
-import 'package:dio/dio.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:dsns_hub/features/auth/providers/auth_provider.dart';
-
-// Provider for Secure Storage
-final Provider<FlutterSecureStorage> secureStorageProvider = Provider<FlutterSecureStorage>((ref) {
-  return const FlutterSecureStorage();
-});
-
-final Provider<Dio> dioProvider = Provider<Dio>((ref) {
-  final dio = Dio(
-    BaseOptions(
-      baseUrl: 'http://10.0.2.2:3000',
-      connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 10),
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    ),
-  );
-
-  final secureStorage = ref.read(secureStorageProvider);
-
-  dio.interceptors.add(
-    InterceptorsWrapper(
-      onRequest: (options, handler) async {
-        // УВАГА: Переконайтеся, що ключ 'jwt_token' збігається з тим, 
-        // який ви використовуєте при збереженні токена під час логіну!
-        final token = await secureStorage.read(key: 'jwt_token');
-
-        if (token != null && token.isNotEmpty) {
-          options.headers['Authorization'] = 'Bearer $token';
-        }
-
-        return handler.next(options);
-      },
-      onError: (DioException e, handler) async {
-        if (e.response?.statusCode == 401) {
-          // Автоматичний логаут при простроченому або недійсному токені
-          ref.read(authStateProvider.notifier).logout();
-        }
-        return handler.next(e);
-      },
-    ),
-  );
-
-  return dio;
-});
-</file>
-
 <file path="lib/features/news/data/repositories/news-repository.dart">
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -3488,341 +3724,6 @@ class NewsRepository {
       }
       throw Exception('Помилка з\'єднання: ${e.message}');
     }
-  }
-}
-</file>
-
-<file path="lib/features/news/presentations/providers/news_providers.dart">
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../data/models/news_models.dart';
-import '../../data/repositories/news-repository.dart';
-
-// Provider для детальної інформації про новину
-final newsDetailProvider = FutureProvider.family<NewsArticle, String>((ref, id) async {
-  final repository = ref.watch(newsRepositoryProvider);
-  return repository.getNewsById(id);
-});
-
-// Провайдер для списку категорій
-final Provider<Future<List<NewsCategory>>> newsCategoriesProvider = Provider((ref) {
-  return ref.watch(newsRepositoryProvider).getCategories();
-});
-
-// Провайдер для збереження обраної категорії (null = Усі новини)
-final StateProvider<String?> selectedCategoryProvider = StateProvider<String?>((ref) => null);
-
-// AsyncNotifier для списку новин з підтримкою пагінації та фільтрації
-class NewsListNotifier extends AsyncNotifier<List<NewsArticle>> {
-  int _currentPage = 1;
-  bool _hasMore = true;
-  bool _isFetching = false;
-
-  bool get hasMore => _hasMore;
-
-  @override
-  Future<List<NewsArticle>> build() async {
-    _currentPage = 1;
-    // Відстежуємо обрану категорію. При її зміні метод build викличеться заново!
-    final categoryId = ref.watch(selectedCategoryProvider);
-    return _fetchPage(1, categoryId: categoryId);
-  }
-
-  Future<List<NewsArticle>> _fetchPage(int page, {String? categoryId}) async {
-    final repository = ref.read(newsRepositoryProvider);
-    final response = await repository.getNews(
-      page: page, 
-      limit: 10,
-      categoryId: categoryId,
-    );
-    
-    _hasMore = response.meta.page < response.meta.lastPage;
-    return response.data;
-  }
-
-  Future<void> loadMore() async {
-    if (!_hasMore || _isFetching) return;
-
-    _isFetching = true;
-    _currentPage++;
-    final categoryId = ref.read(selectedCategoryProvider);
-    
-    try {
-      final newArticles = await _fetchPage(_currentPage, categoryId: categoryId);
-      final currentArticles = state.value ?? [];
-      
-      state = AsyncValue.data([...currentArticles, ...newArticles]);
-    } catch (e, st) {
-      state = AsyncValue.error(e, st);
-    } finally {
-      _isFetching = false;
-    }
-  }
-}
-
-// Провайдер для взаємодії з новинами (лайки, дизлайки, додавання коментарів)
-final Provider<NewsInteractionController> newsInteractionProvider = Provider<NewsInteractionController>((ref) {
-  return NewsInteractionController(ref);
-});
-
-class NewsInteractionController {
-  final Ref _ref;
-
-  NewsInteractionController(this._ref);
-
-  Future<void> vote(String newsId, String voteType) async {
-    try {
-      await _ref.read(newsRepositoryProvider).vote(newsId, voteType);
-      _ref.invalidate(newsListProvider);
-      _ref.invalidate(newsDetailProvider(newsId));
-    } catch (e) {
-      throw Exception(e.toString().replaceAll('Exception: ', ''));
-    }
-  }
-
-  Future<void> addComment(String newsId, String content) async {
-    try {
-      await _ref.read(newsRepositoryProvider).addComment(newsId, content);
-      _ref.invalidate(newsListProvider);
-      _ref.invalidate(newsDetailProvider(newsId));
-    } catch (e) {
-      throw Exception('Не вдалося додати коментар: $e');
-    }
-  }
-}
-
-final newsListProvider = AsyncNotifierProvider<NewsListNotifier, List<NewsArticle>>(
-  () => NewsListNotifier(),
-);
-</file>
-
-<file path="lib/features/news/presentations/screens/news_screen.dart">
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import '../../data/models/news_models.dart';
-import 'package:dsns_hub/core/presentation/widgets/filter_choice_chip.dart';
-import '../providers/news_providers.dart';
-import '../widgets/news_card.dart';
-
-class NewsScreen extends ConsumerStatefulWidget {
-  const NewsScreen({super.key});
-
-  @override
-  ConsumerState<NewsScreen> createState() => _NewsScreenState();
-}
-
-class _NewsScreenState extends ConsumerState<NewsScreen> {
-  final ScrollController _scrollController = ScrollController();
-
-  @override
-  void initState() {
-    super.initState();
-    _scrollController.addListener(_onScroll);
-  }
-
-  @override
-  void dispose() {
-    _scrollController.removeListener(_onScroll);
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  void _onScroll() {
-    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
-      ref.read(newsListProvider.notifier).loadMore();
-    }
-  }
-
-  Future<void> _onRefresh() async {
-    // Invalidate the provider to force a complete reload
-    ref.invalidate(newsListProvider);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final newsState = ref.watch(newsListProvider);
-
-    return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      appBar: AppBar(
-        title: const Text('Стрічка новин', style: TextStyle(fontWeight: FontWeight.bold)),
-        centerTitle: true,
-        scrolledUnderElevation: 2,
-      ),
-      body: Column(
-        children: [
-          _buildCategoryFilter(),
-          Expanded(
-            child: newsState.when(
-              data: (articles) {
-                if (articles.isEmpty) {
-                  return _buildEmptyState();
-                }
-
-                return RefreshIndicator(
-                  onRefresh: _onRefresh,
-                  child: ListView.builder(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    itemCount: articles.length + 1, // +1 for loading indicator at the bottom
-                    itemBuilder: (context, index) {
-                      if (index == articles.length) {
-                        return _buildBottomLoader();
-                      }
-                      
-                      final article = articles[index];
-                      return NewsCard(
-                        article: article,
-                        onTap: () => context.push('/news/${article.id}'),
-                        onLike: () async {
-                          try {
-                            await ref.read(newsInteractionProvider).vote(article.id, 'UPVOTE');
-                          } catch (e) {
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: Colors.red));
-                            }
-                          }
-                        },
-                        onDislike: () async {
-                          try {
-                            await ref.read(newsInteractionProvider).vote(article.id, 'DOWNVOTE');
-                          } catch (e) {
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: Colors.red));
-                            }
-                          }
-                        },
-                        onCommentTap: () {
-                          // Переходимо до новини і одразу скролимо до коментарів
-                          context.push('/news/${article.id}?comments=true');
-                        },
-                      );
-                    },
-                  ),
-                );
-              },
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, stack) => _buildErrorState(error.toString()),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCategoryFilter() {
-    return FutureBuilder<List<NewsCategory>>(
-      future: ref.watch(newsCategoriesProvider),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return const SizedBox.shrink();
-        }
-
-        final categories = snapshot.data!;
-        final selectedCategoryId = ref.watch(selectedCategoryProvider);
-        final theme = Theme.of(context);
-
-        return Container(
-          width: double.infinity,
-          color: theme.colorScheme.surface,
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                FilterChoiceChip(
-                  label: 'Усі',
-                  isSelected: selectedCategoryId == null,
-                  onSelected: () {
-                    if (selectedCategoryId != null) {
-                      ref.read(selectedCategoryProvider.notifier).state = null;
-                    }
-                  },
-                ),
-                ...categories.map((category) {
-                  final isSelected = selectedCategoryId == category.id;
-                  return FilterChoiceChip(
-                    label: category.name,
-                    isSelected: isSelected,
-                    onSelected: () {
-                      if (!isSelected) {
-                        ref.read(selectedCategoryProvider.notifier).state = category.id;
-                      }
-                    },
-                  );
-                }),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildBottomLoader() {
-    final hasMore = ref.read(newsListProvider.notifier).hasMore;
-    if (!hasMore) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 24),
-        child: Center(
-          child: Text('Ви переглянули всі новини', style: TextStyle(color: Colors.grey)),
-        ),
-      );
-    }
-    return const Padding(
-      padding: EdgeInsets.symmetric(vertical: 24),
-      child: Center(child: CircularProgressIndicator()),
-    );
-  }
-
-  Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.newspaper, size: 64, color: Colors.grey.shade400),
-          const SizedBox(height: 16),
-          Text(
-            'Немає новин',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey.shade600),
-          ),
-          const SizedBox(height: 8),
-          ElevatedButton(
-            onPressed: _onRefresh,
-            child: const Text('Оновити'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildErrorState(String error) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.error_outline, size: 48, color: Colors.red),
-            const SizedBox(height: 16),
-            Text(
-              'Сталася помилка при завантаженні новин',
-              style: Theme.of(context).textTheme.titleMedium,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            Text(error, style: const TextStyle(color: Colors.grey), textAlign: TextAlign.center),
-            const SizedBox(height: 24),
-            FilledButton.icon(
-              onPressed: _onRefresh,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Спробувати ще раз'),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }
 </file>
@@ -4307,6 +4208,85 @@ class PollRepository {
 }
 </file>
 
+<file path="lib/features/polls/presentation/providers/poll_provider.dart">
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../data/models/poll_model.dart';
+import '../../data/repositories/poll_repository.dart';
+import '../../../auth/providers/auth_provider.dart';
+
+final pollsProvider = StateNotifierProvider<PollsNotifier, AsyncValue<List<Poll>>>((ref) {
+  final token = ref.watch(currentTokenProvider);
+  final repository = ref.watch(pollRepositoryProvider);
+  
+  final notifier = PollsNotifier(repository);
+  if (token != null && token.isNotEmpty) {
+    notifier.fetchPolls();
+  } else {
+    notifier.clear();
+  }
+  return notifier;
+});
+
+class PollsNotifier extends StateNotifier<AsyncValue<List<Poll>>> {
+  final PollRepository _repository;
+
+  PollsNotifier(this._repository) : super(const AsyncValue.loading());
+
+  void clear() {
+    state = const AsyncValue.data([]);
+  }
+
+  Future<void> fetchPolls() async {
+    try {
+      state = const AsyncValue.loading();
+      
+      // Fetch both active (default) and archived polls concurrently
+      final results = await Future.wait([
+        _repository.getPolls(), // GET /polls?status=PUBLISHED (by default)
+        _repository.getPolls(status: 'ARCHIVED'), // GET /polls?status=ARCHIVED
+      ]);
+      
+      final activePolls = results[0];
+      final archivedPolls = results[1];
+      
+      // Combine and remove any potential duplicates by ID
+      final allPolls = [...activePolls, ...archivedPolls];
+      final uniquePolls = {for (var p in allPolls) p.id: p}.values.toList();
+      
+      state = AsyncValue.data(uniquePolls);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
+  }
+
+  Future<void> vote(String pollId, String optionId) async {
+    if (state.value == null) return;
+    final previousState = state.value!;
+
+    try {
+      final updatedPoll = await _repository.vote(pollId, optionId);
+      
+      // Reactively update the specific poll in the list
+      state = AsyncValue.data(
+        previousState.map((p) => p.id == pollId ? updatedPoll : p).toList(),
+      );
+    } catch (e) {
+      rethrow;
+    }
+  }
+}
+
+// Reactive provider for a specific poll detail to keep UI in sync automatically
+final pollDetailProvider = Provider.family<Poll?, String>((ref, id) {
+  final pollsState = ref.watch(pollsProvider);
+  final polls = pollsState.value ?? [];
+  for (final p in polls) {
+    if (p.id == id) return p;
+  }
+  return null;
+});
+</file>
+
 <file path="lib/features/polls/presentation/screens/poll_detail_screen.dart">
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -4687,6 +4667,52 @@ class _PollDetailScreenState extends ConsumerState<PollDetailScreen> {
 }
 </file>
 
+<file path="lib/core/network/dio_provider.dart">
+import 'package:dio/dio.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../features/auth/providers/auth_provider.dart';
+
+final Provider<Dio> dioProvider = Provider<Dio>((ref) {
+  final dio = Dio(
+    BaseOptions(
+      baseUrl: 'http://10.0.2.2:3000',
+      connectTimeout: const Duration(seconds: 10),
+      receiveTimeout: const Duration(seconds: 10),
+      // Ніяких хардкодних contentType! Dio сам розбереться з FormData
+    ),
+  );
+
+  dio.interceptors.add(
+    InterceptorsWrapper(
+      onRequest: (options, handler) {
+        final token = ref.read(currentTokenProvider);
+        if (token != null && token.isNotEmpty) {
+          options.headers['Authorization'] = 'Bearer $token';
+        }
+        return handler.next(options);
+      },
+      onError: (DioException e, handler) {
+        if (e.response?.statusCode == 401 && e.requestOptions.path != '/auth/login') {
+          ref.read(authStateProvider.notifier).logout();
+        }
+        return handler.next(e);
+      },
+    ),
+  );
+
+  dio.interceptors.add(LogInterceptor(
+    request: true,
+    requestHeader: true,
+    requestBody: false, // Не логуємо тіло, щоб консоль не зависла від байтів картинки
+    responseHeader: false,
+    responseBody: true,
+    error: true,
+  ));
+
+  return dio;
+});
+</file>
+
 <file path="lib/features/auth/presentation/screens/login_screen.dart">
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -4884,6 +4910,115 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
   }
 }
+</file>
+
+<file path="lib/features/news/presentations/providers/news_providers.dart">
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../data/models/news_models.dart';
+import '../../data/repositories/news-repository.dart';
+import '../../../auth/providers/auth_provider.dart';
+
+// Provider для детальної інформації про новину
+final newsDetailProvider = FutureProvider.family<NewsArticle, String>((ref, id) async {
+  final repository = ref.watch(newsRepositoryProvider);
+  return repository.getNewsById(id);
+});
+
+// Провайдер для списку категорій
+final Provider<Future<List<NewsCategory>>> newsCategoriesProvider = Provider((ref) {
+  final token = ref.watch(currentTokenProvider);
+  if (token == null || token.isEmpty) return Future.value([]);
+  return ref.watch(newsRepositoryProvider).getCategories();
+});
+
+// Провайдер для збереження обраної категорії (null = Усі новини)
+final StateProvider<String?> selectedCategoryProvider = StateProvider<String?>((ref) => null);
+
+// AsyncNotifier для списку новин з підтримкою пагінації та фільтрації
+class NewsListNotifier extends AsyncNotifier<List<NewsArticle>> {
+  int _currentPage = 1;
+  bool _hasMore = true;
+  bool _isFetching = false;
+
+  bool get hasMore => _hasMore;
+
+  @override
+  Future<List<NewsArticle>> build() async {
+    // Якщо токен пропав (логаут), повертаємо пустий список
+    final token = ref.watch(currentTokenProvider);
+    if (token == null || token.isEmpty) return [];
+
+    _currentPage = 1;
+    final categoryId = ref.watch(selectedCategoryProvider);
+    return _fetchPage(1, categoryId: categoryId);
+  }
+
+  Future<List<NewsArticle>> _fetchPage(int page, {String? categoryId}) async {
+    final repository = ref.read(newsRepositoryProvider);
+    final response = await repository.getNews(
+      page: page, 
+      limit: 10,
+      categoryId: categoryId,
+    );
+    
+    _hasMore = response.meta.page < response.meta.lastPage;
+    return response.data;
+  }
+
+  Future<void> loadMore() async {
+    if (!_hasMore || _isFetching) return;
+
+    _isFetching = true;
+    _currentPage++;
+    final categoryId = ref.read(selectedCategoryProvider);
+    
+    try {
+      final newArticles = await _fetchPage(_currentPage, categoryId: categoryId);
+      final currentArticles = state.value ?? [];
+      
+      state = AsyncValue.data([...currentArticles, ...newArticles]);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    } finally {
+      _isFetching = false;
+    }
+  }
+}
+
+// Провайдер для взаємодії з новинами (лайки, дизлайки, додавання коментарів)
+final Provider<NewsInteractionController> newsInteractionProvider = Provider<NewsInteractionController>((ref) {
+  return NewsInteractionController(ref);
+});
+
+class NewsInteractionController {
+  final Ref _ref;
+
+  NewsInteractionController(this._ref);
+
+  Future<void> vote(String newsId, String voteType) async {
+    try {
+      await _ref.read(newsRepositoryProvider).vote(newsId, voteType);
+      _ref.invalidate(newsListProvider);
+      _ref.invalidate(newsDetailProvider(newsId));
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  Future<void> addComment(String newsId, String content) async {
+    try {
+      await _ref.read(newsRepositoryProvider).addComment(newsId, content);
+      _ref.invalidate(newsListProvider);
+      _ref.invalidate(newsDetailProvider(newsId));
+    } catch (e) {
+      throw Exception('Не вдалося додати коментар: $e');
+    }
+  }
+}
+
+final newsListProvider = AsyncNotifierProvider<NewsListNotifier, List<NewsArticle>>(
+  () => NewsListNotifier(),
+);
 </file>
 
 <file path="lib/features/news/presentations/screens/news_detail_screen.dart">
@@ -5308,6 +5443,240 @@ class _NewsDetailScreenState extends ConsumerState<NewsDetailScreen> {
 }
 </file>
 
+<file path="lib/features/news/presentations/screens/news_screen.dart">
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import '../../data/models/news_models.dart';
+import 'package:dsns_hub/core/presentation/widgets/filter_choice_chip.dart';
+import '../providers/news_providers.dart';
+import '../widgets/news_card.dart';
+import '../../../profile/presentation/widgets/user_profile_button.dart';
+
+class NewsScreen extends ConsumerStatefulWidget {
+  const NewsScreen({super.key});
+
+  @override
+  ConsumerState<NewsScreen> createState() => _NewsScreenState();
+}
+
+class _NewsScreenState extends ConsumerState<NewsScreen> {
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      ref.read(newsListProvider.notifier).loadMore();
+    }
+  }
+
+  Future<void> _onRefresh() async {
+    // Invalidate the provider to force a complete reload
+    ref.invalidate(newsListProvider);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final newsState = ref.watch(newsListProvider);
+
+    return Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      appBar: AppBar(
+        title: const Text('Стрічка новин', style: TextStyle(fontWeight: FontWeight.bold)),
+        centerTitle: true,
+        scrolledUnderElevation: 2,
+        actions: const [UserProfileButton()],
+      ),
+      body: Column(
+        children: [
+          _buildCategoryFilter(),
+          Expanded(
+            child: newsState.when(
+              data: (articles) {
+                if (articles.isEmpty) {
+                  return _buildEmptyState();
+                }
+
+                return RefreshIndicator(
+                  onRefresh: _onRefresh,
+                  child: ListView.builder(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    itemCount: articles.length + 1, // +1 for loading indicator at the bottom
+                    itemBuilder: (context, index) {
+                      if (index == articles.length) {
+                        return _buildBottomLoader();
+                      }
+                      
+                      final article = articles[index];
+                      return NewsCard(
+                        article: article,
+                        onTap: () => context.push('/news/${article.id}'),
+                        onLike: () async {
+                          try {
+                            await ref.read(newsInteractionProvider).vote(article.id, 'UPVOTE');
+                          } catch (e) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: Colors.red));
+                            }
+                          }
+                        },
+                        onDislike: () async {
+                          try {
+                            await ref.read(newsInteractionProvider).vote(article.id, 'DOWNVOTE');
+                          } catch (e) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: Colors.red));
+                            }
+                          }
+                        },
+                        onCommentTap: () {
+                          // Переходимо до новини і одразу скролимо до коментарів
+                          context.push('/news/${article.id}?comments=true');
+                        },
+                      );
+                    },
+                  ),
+                );
+              },
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, stack) => _buildErrorState(error.toString()),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCategoryFilter() {
+    return FutureBuilder<List<NewsCategory>>(
+      future: ref.watch(newsCategoriesProvider),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        final categories = snapshot.data!;
+        final selectedCategoryId = ref.watch(selectedCategoryProvider);
+        final theme = Theme.of(context);
+
+        return Container(
+          width: double.infinity,
+          color: theme.colorScheme.surface,
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                FilterChoiceChip(
+                  label: 'Усі',
+                  isSelected: selectedCategoryId == null,
+                  onSelected: () {
+                    if (selectedCategoryId != null) {
+                      ref.read(selectedCategoryProvider.notifier).state = null;
+                    }
+                  },
+                ),
+                ...categories.map((category) {
+                  final isSelected = selectedCategoryId == category.id;
+                  return FilterChoiceChip(
+                    label: category.name,
+                    isSelected: isSelected,
+                    onSelected: () {
+                      if (!isSelected) {
+                        ref.read(selectedCategoryProvider.notifier).state = category.id;
+                      }
+                    },
+                  );
+                }),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildBottomLoader() {
+    final hasMore = ref.read(newsListProvider.notifier).hasMore;
+    if (!hasMore) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 24),
+        child: Center(
+          child: Text('Ви переглянули всі новини', style: TextStyle(color: Colors.grey)),
+        ),
+      );
+    }
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 24),
+      child: Center(child: CircularProgressIndicator()),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.newspaper, size: 64, color: Colors.grey.shade400),
+          const SizedBox(height: 16),
+          Text(
+            'Немає новин',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey.shade600),
+          ),
+          const SizedBox(height: 8),
+          ElevatedButton(
+            onPressed: _onRefresh,
+            child: const Text('Оновити'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorState(String error) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, size: 48, color: Colors.red),
+            const SizedBox(height: 16),
+            Text(
+              'Сталася помилка при завантаженні новин',
+              style: Theme.of(context).textTheme.titleMedium,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(error, style: const TextStyle(color: Colors.grey), textAlign: TextAlign.center),
+            const SizedBox(height: 24),
+            FilledButton.icon(
+              onPressed: _onRefresh,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Спробувати ще раз'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+</file>
+
 <file path="lib/features/polls/presentation/screens/polls_screen.dart">
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5316,6 +5685,7 @@ import 'package:intl/intl.dart';
 import 'package:dsns_hub/core/presentation/widgets/filter_choice_chip.dart';
 import '../providers/poll_provider.dart';
 import '../../data/models/poll_model.dart';
+import '../../../profile/presentation/widgets/user_profile_button.dart';
 
 class PollsScreen extends ConsumerStatefulWidget {
   const PollsScreen({super.key});
@@ -5351,6 +5721,7 @@ class _PollsScreenState extends ConsumerState<PollsScreen> {
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
+        actions: const [UserProfileButton()],
       ),
       body: Column(
         children: [
@@ -5851,6 +6222,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.1.2"
+  cross_file:
+    dependency: transitive
+    description:
+      name: cross_file
+      sha256: "92c9c43c383bfa1c32079d3bc492d55d6d4318044b7b47edaff8971cbb555c51"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.3.5+4"
   crypto:
     dependency: transitive
     description:
@@ -5923,6 +6302,38 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "7.0.1"
+  file_selector_linux:
+    dependency: transitive
+    description:
+      name: file_selector_linux
+      sha256: "2567f398e06ac72dcf2e98a0c95df2a9edd03c2c2e0cacd4780f20cdf56263a0"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.9.4"
+  file_selector_macos:
+    dependency: transitive
+    description:
+      name: file_selector_macos
+      sha256: "5e0bbe9c312416f1787a68259ea1505b52f258c587f12920422671807c4d618a"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.9.5"
+  file_selector_platform_interface:
+    dependency: transitive
+    description:
+      name: file_selector_platform_interface
+      sha256: "35e0bd61ebcdb91a3505813b055b09b79dfdc7d0aee9c09a7ba59ae4bb13dc85"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.7.0"
+  file_selector_windows:
+    dependency: transitive
+    description:
+      name: file_selector_windows
+      sha256: "62197474ae75893a62df75939c777763d39c2bc5f73ce5b88497208bc269abfd"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.9.3+5"
   fixnum:
     dependency: transitive
     description:
@@ -5952,6 +6363,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "6.0.0"
+  flutter_plugin_android_lifecycle:
+    dependency: transitive
+    description:
+      name: flutter_plugin_android_lifecycle
+      sha256: "3854fe5e3bff0b113c658f260b90c95dea17c92db0f2addeac2e343dd9969785"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.0.35"
   flutter_riverpod:
     dependency: "direct main"
     description:
@@ -6074,6 +6493,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.15.6"
+  http:
+    dependency: transitive
+    description:
+      name: http
+      sha256: "87721a4a50b19c7f1d49001e51409bddc46303966ce89a65af4f4e6004896412"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.6.0"
   http_multi_server:
     dependency: transitive
     description:
@@ -6090,6 +6517,70 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "4.1.2"
+  image_picker:
+    dependency: "direct main"
+    description:
+      name: image_picker
+      sha256: d8402284df184bc05f4a2210c6c23983b0720f4cd87cbd05c5390a78af602667
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.2.3"
+  image_picker_android:
+    dependency: transitive
+    description:
+      name: image_picker_android
+      sha256: "6f3a1995eafb000333174fae92202622033b0ee7fd917a6cd3730295264df84a"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.8.13+19"
+  image_picker_for_web:
+    dependency: transitive
+    description:
+      name: image_picker_for_web
+      sha256: "66257a3191ab360d23a55c8241c91a6e329d31e94efa7be9cf7a212e65850214"
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.1.1"
+  image_picker_ios:
+    dependency: transitive
+    description:
+      name: image_picker_ios
+      sha256: b9c4a438a9ff4f60808c9cf0039b93a42bb6c2211ef6ebb647394b2b3fa84588
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.8.13+6"
+  image_picker_linux:
+    dependency: transitive
+    description:
+      name: image_picker_linux
+      sha256: "1f81c5f2046b9ab724f85523e4af65be1d47b038160a8c8deed909762c308ed4"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.2.2"
+  image_picker_macos:
+    dependency: transitive
+    description:
+      name: image_picker_macos
+      sha256: "86f0f15a309de7e1a552c12df9ce5b59fe927e71385329355aec4776c6a8ec91"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.2.2+1"
+  image_picker_platform_interface:
+    dependency: transitive
+    description:
+      name: image_picker_platform_interface
+      sha256: "567e056716333a1647c64bb6bd873cff7622233a5c3f694be28a583d4715690c"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.11.1"
+  image_picker_windows:
+    dependency: transitive
+    description:
+      name: image_picker_windows
+      sha256: d248c86554a72b5495a31c56f060cf73a41c7ff541689327b1a7dbccc33adfae
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.2.2"
   intl:
     dependency: "direct main"
     description:
@@ -6638,6 +7129,7 @@ dependencies:
   flutter_secure_storage: ^10.3.1
   freezed_annotation: ^3.1.0
   go_router: ^17.3.0
+  image_picker: ^1.2.3
   intl: ^0.20.3
   json_annotation: ^4.12.0
   socket_io_client: ^3.1.6
@@ -6669,6 +7161,7 @@ import '../../features/news/presentations/screens/news_screen.dart';
 import '../../features/news/presentations/screens/news_detail_screen.dart';
 import '../../features/chats/presentation/screens/chats_screen.dart';
 import '../../features/chats/presentation/screens/chat_detail_screen.dart';
+import '../../features/profile/presentation/screens/profile_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   // Використовуємо ValueNotifier, щоб GoRouter реагував на зміни без перестворення самого себе
@@ -6687,11 +7180,14 @@ final routerProvider = Provider<GoRouter>((ref) {
     refreshListenable: authStateNotifier,
     redirect: (context, state) {
       final authState = authStateNotifier.value;
+      final isLoggingIn = state.matchedLocation == '/login';
       
-      if (authState.isLoading) return null; 
+      // Блокуємо доступ до системи, поки йде перевірка токена (фікс Race Condition)
+      if (authState.isLoading) {
+        return isLoggingIn ? null : '/login';
+      }
 
       final isAuthenticated = authState.valueOrNull ?? false;
-      final isLoggingIn = state.matchedLocation == '/login';
 
       if (!isAuthenticated && !isLoggingIn) return '/login';
       if (isAuthenticated && isLoggingIn) return '/news';
@@ -6702,6 +7198,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/login',
         builder: (context, state) => const LoginScreen(),
+      ),
+      GoRoute(
+        path: '/profile',
+        builder: (context, state) => const ProfileScreen(),
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {

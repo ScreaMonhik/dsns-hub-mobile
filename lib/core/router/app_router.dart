@@ -11,6 +11,7 @@ import '../../features/news/presentations/screens/news_screen.dart';
 import '../../features/news/presentations/screens/news_detail_screen.dart';
 import '../../features/chats/presentation/screens/chats_screen.dart';
 import '../../features/chats/presentation/screens/chat_detail_screen.dart';
+import '../../features/chats/presentation/screens/chat_info_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -124,6 +125,15 @@ final routerProvider = Provider<GoRouter>((ref) {
                       final groupId = state.pathParameters['id']!;
                       return ChatDetailScreen(groupId: groupId);
                     },
+                    routes: [
+                      GoRoute(
+                        path: 'info',
+                        builder: (context, state) {
+                          final groupId = state.pathParameters['id']!;
+                          return ChatInfoScreen(groupId: groupId);
+                        },
+                      ),
+                    ],
                   ),
                 ],
               ),

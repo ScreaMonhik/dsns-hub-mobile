@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../providers/chat_providers.dart';
 import '../../data/models/chat_models.dart';
@@ -72,11 +73,57 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
     final groupsState = ref.watch(chatsListProvider);
     final theme = Theme.of(context);
     
-    final groupName = groupsState.value?.where((g) => g.id == widget.groupId).firstOrNull?.name ?? 'Чат';
+    final group = groupsState.value?.where((g) => g.id == widget.groupId).firstOrNull;
+    final groupName = group?.name ?? 'Чат';
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(groupName, style: const TextStyle(fontWeight: FontWeight.bold)),
+        title: InkWell(
+          onTap: () => context.push('/chats/${widget.groupId}/info'),
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 8.0),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 18,
+                  backgroundColor: theme.colorScheme.primaryContainer,
+                  child: group?.avatarUrl != null
+                      ? ClipOval(
+                          child: AuthNetworkImage(
+                            imageUrl: group!.avatarUrl!,
+                            width: 36,
+                            height: 36,
+                            fit: BoxFit.cover,
+                          ),
+                        )
+                      : Text(groupName.isNotEmpty ? groupName[0] : '?', style: const TextStyle(fontWeight: FontWeight.bold)),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        groupName, 
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        'Натисніть для інформації', 
+                        style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurfaceVariant),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
         titleSpacing: 0,
       ),
       body: Column(

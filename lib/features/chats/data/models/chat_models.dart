@@ -16,9 +16,13 @@ abstract class ChatDepartment with _$ChatDepartment {
 @freezed
 abstract class ChatMember with _$ChatMember {
   const factory ChatMember({
+    String? userId,
+    String? groupId,
     required bool isPinned,
     int? pinOrder,
     required bool isAdmin,
+    DateTime? joinedAt,
+    ChatSender? user,
   }) = _ChatMember;
 
   factory ChatMember.fromJson(Map<String, dynamic> json) => _$ChatMemberFromJson(json);
