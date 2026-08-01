@@ -1,13 +1,14 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:dsns_hub/features/auth/providers/auth_provider.dart';
 
 // Provider for Secure Storage
-final secureStorageProvider = Provider<FlutterSecureStorage>((ref) {
+final Provider<FlutterSecureStorage> secureStorageProvider = Provider<FlutterSecureStorage>((ref) {
   return const FlutterSecureStorage();
 });
 
-final dioProvider = Provider<Dio>((ref) {
+final Provider<Dio> dioProvider = Provider<Dio>((ref) {
   final dio = Dio(
     BaseOptions(
       baseUrl: 'http://10.0.2.2:3000',
@@ -34,9 +35,11 @@ final dioProvider = Provider<Dio>((ref) {
 
         return handler.next(options);
       },
-      onError: (DioException e, handler) {
-        // Тут можна додати логіку автоматичного логауту при 401
-        // якщо токен прострочився
+      onError: (DioException e, handler) async {
+        if (e.response?.statusCode == 401) {
+          // Автоматичний логаут при простроченому або недійсному токені
+          ref.read(authStateProvider.notifier).logout();
+        }
         return handler.next(e);
       },
     ),

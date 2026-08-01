@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import '../../../../core/network/dio_provider.dart';
-import '../data/repositories/auth_repository.dart';
+import 'package:dsns_hub/core/network/dio_provider.dart';
+import 'package:dsns_hub/features/auth/data/repositories/auth_repository.dart';
 
 final authStateProvider = StateNotifierProvider<AuthNotifier, AsyncValue<bool>>((ref) {
   return AuthNotifier(

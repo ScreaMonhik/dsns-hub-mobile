@@ -7,14 +7,28 @@ import '../../features/home/presentation/home_shell_screen.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/polls/presentation/screens/polls_screen.dart';
 import '../../features/polls/presentation/screens/poll_detail_screen.dart';
+import '../../features/news/presentations/screens/news_screen.dart';
+import '../../features/news/presentations/screens/news_detail_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authStateProvider);
+  // Використовуємо ValueNotifier, щоб GoRouter реагував на зміни без перестворення самого себе
+  final authStateNotifier = ValueNotifier<AsyncValue<bool>>(const AsyncValue.loading());
+  
+  ref.onDispose(() {
+    authStateNotifier.dispose();
+  });
+
+  ref.listen(authStateProvider, (previous, next) {
+    authStateNotifier.value = next;
+  });
 
   return GoRouter(
     initialLocation: '/news',
+    refreshListenable: authStateNotifier,
     redirect: (context, state) {
-      if (authState is AsyncLoading) return null; 
+      final authState = authStateNotifier.value;
+      
+      if (authState.isLoading) return null; 
 
       final isAuthenticated = authState.valueOrNull ?? false;
       final isLoggingIn = state.matchedLocation == '/login';
@@ -38,7 +52,16 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: '/news',
-                builder: (context, state) => const Scaffold(body: Center(child: Text('Новини'))),
+                builder: (context, state) => const NewsScreen(),
+                routes: [
+                  GoRoute(
+                    path: ':id',
+                    builder: (context, state) {
+                      final newsId = state.pathParameters['id']!;
+                      return NewsDetailScreen(newsId: newsId);
+                    },
+                  ),
+                ],
               ),
             ],
           ),

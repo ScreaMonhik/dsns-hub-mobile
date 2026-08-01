@@ -161,6 +161,15 @@ lib/
     home/
       presentation/
         home_shell_screen.dart
+    news/
+      data/
+        models/
+          news_models.dart
+        repositories/
+          news-repository.dart
+      presentations/
+        providers/
+          news_providers.dart
     polls/
       data/
         models/
@@ -1925,6 +1934,237 @@ class HomeShellScreen extends StatelessWidget {
 }
 </file>
 
+<file path="lib/features/news/data/models/news_models.dart">
+import 'package:freezed_annotation/freezed_annotation.dart';
+
+part 'news_models.freezed.dart';
+part 'news_models.g.dart';
+
+@freezed
+abstract class NewsAuthor with _$NewsAuthor {
+  const factory NewsAuthor({
+    required String id,
+    required String firstName,
+    required String lastName,
+    String? avatarUrl,
+  }) = _NewsAuthor;
+
+  factory NewsAuthor.fromJson(Map<String, dynamic> json) => _$NewsAuthorFromJson(json);
+}
+
+@freezed
+abstract class NewsCategory with _$NewsCategory {
+  const factory NewsCategory({
+    required String id,
+    required String name,
+    required int orderIndex,
+  }) = _NewsCategory;
+
+  factory NewsCategory.fromJson(Map<String, dynamic> json) => _$NewsCategoryFromJson(json);
+}
+
+@freezed
+abstract class NewsDepartment with _$NewsDepartment {
+  const factory NewsDepartment({
+    required String id,
+    required String name,
+  }) = _NewsDepartment;
+
+  factory NewsDepartment.fromJson(Map<String, dynamic> json) => _$NewsDepartmentFromJson(json);
+}
+
+@freezed
+abstract class NewsCounts with _$NewsCounts {
+  const factory NewsCounts({
+    @Default(0) int comments,
+    @Default(0) int likes,
+    @Default(0) int dislikes,
+  }) = _NewsCounts;
+
+  factory NewsCounts.fromJson(Map<String, dynamic> json) => _$NewsCountsFromJson(json);
+}
+
+@freezed
+abstract class NewsComment with _$NewsComment {
+  const factory NewsComment({
+    required String id,
+    required String content,
+    required DateTime createdAt,
+    required NewsAuthor author,
+  }) = _NewsComment;
+
+  factory NewsComment.fromJson(Map<String, dynamic> json) => _$NewsCommentFromJson(json);
+}
+
+@freezed
+abstract class NewsVote with _$NewsVote {
+  const factory NewsVote({
+    required String voteType,
+    required String userId,
+    required String newsId,
+  }) = _NewsVote;
+
+  factory NewsVote.fromJson(Map<String, dynamic> json) => _$NewsVoteFromJson(json);
+}
+
+@freezed
+abstract class NewsArticle with _$NewsArticle {
+  const factory NewsArticle({
+    required String id,
+    required String title,
+    required String content,
+    String? imageUrl,
+    required String status,
+    String? categoryId,
+    required DateTime createdAt,
+    required String authorId,
+    required NewsAuthor author,
+    NewsCategory? category,
+    @Default([]) List<NewsDepartment> departments,
+    @JsonKey(name: '_count') NewsCounts? count,
+    @Default([]) List<NewsComment> comments,
+    @Default([]) List<NewsVote> votes,
+    @Default(0) int upvotes,
+    @Default(0) int downvotes,
+  }) = _NewsArticle;
+
+  factory NewsArticle.fromJson(Map<String, dynamic> json) => _$NewsArticleFromJson(json);
+}
+
+@freezed
+abstract class NewsPaginationMeta with _$NewsPaginationMeta {
+  const factory NewsPaginationMeta({
+    required int total,
+    required int page,
+    required int lastPage,
+  }) = _NewsPaginationMeta;
+
+  factory NewsPaginationMeta.fromJson(Map<String, dynamic> json) => _$NewsPaginationMetaFromJson(json);
+}
+
+@freezed
+abstract class NewsPaginatedResponse with _$NewsPaginatedResponse {
+  const factory NewsPaginatedResponse({
+    required List<NewsArticle> data,
+    required NewsPaginationMeta meta,
+  }) = _NewsPaginatedResponse;
+
+  factory NewsPaginatedResponse.fromJson(Map<String, dynamic> json) => _$NewsPaginatedResponseFromJson(json);
+}
+</file>
+
+<file path="lib/features/news/data/repositories/news-repository.dart">
+import 'package:dio/dio.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../models/news_models.dart';
+import '../../../../core/network/dio_provider.dart'; // Вкажіть правильний шлях до вашого клієнта
+
+final newsRepositoryProvider = Provider<NewsRepository>((ref) {
+  final dio = ref.watch(dioProvider);
+  return NewsRepository(dio);
+});
+
+class NewsRepository {
+  final Dio _dio;
+
+  NewsRepository(this._dio);
+
+  Future<NewsPaginatedResponse> getNews({
+    int page = 1,
+    int limit = 10,
+    String? categoryId,
+    String? status,
+    String? departmentId,
+  }) async {
+    final response = await _dio.get('/news', queryParameters: {
+      'page': page,
+      'limit': limit,
+      if (categoryId != null) 'categoryId': categoryId,
+      if (status != null) 'status': status,
+      if (departmentId != null) 'departmentId': departmentId,
+    });
+
+    return NewsPaginatedResponse.fromJson(response.data);
+  }
+
+  Future<NewsArticle> getNewsById(String id) async {
+    final response = await _dio.get('/news/$id');
+    return NewsArticle.fromJson(response.data);
+  }
+
+  Future<void> vote(String newsId, String voteType) async {
+    await _dio.post(
+      '/news/$newsId/vote',
+      data: {'voteType': voteType},
+    );
+  }
+
+  Future<void> addComment(String newsId, String content) async {
+    await _dio.post(
+      '/news/$newsId/comments',
+      data: {'content': content},
+    );
+  }
+}
+</file>
+
+<file path="lib/features/news/presentations/providers/news_providers.dart">
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../data/models/news_models.dart';
+import '../../data/repositories/news-repository.dart';
+
+// Provider для детальної інформації про новину
+final newsDetailProvider = FutureProvider.family<NewsArticle, String>((ref, id) async {
+  final repository = ref.watch(newsRepositoryProvider);
+  return repository.getNewsById(id);
+});
+
+// AsyncNotifier для списку новин з підтримкою пагінації
+class NewsListNotifier extends AsyncNotifier<List<NewsArticle>> {
+  int _currentPage = 1;
+  bool _hasMore = true;
+  bool _isFetching = false;
+
+  bool get hasMore => _hasMore;
+
+  @override
+  Future<List<NewsArticle>> build() async {
+    _currentPage = 1;
+    return _fetchPage(1);
+  }
+
+  Future<List<NewsArticle>> _fetchPage(int page) async {
+    final repository = ref.read(newsRepositoryProvider);
+    final response = await repository.getNews(page: page, limit: 10);
+    
+    _hasMore = response.meta.page < response.meta.lastPage;
+    return response.data;
+  }
+
+  Future<void> loadMore() async {
+    if (!_hasMore || _isFetching) return;
+
+    _isFetching = true;
+    _currentPage++;
+    
+    try {
+      final newArticles = await _fetchPage(_currentPage);
+      final currentArticles = state.value ?? [];
+      
+      state = AsyncValue.data([...currentArticles, ...newArticles]);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    } finally {
+      _isFetching = false;
+    }
+  }
+}
+
+final newsListProvider = AsyncNotifierProvider<NewsListNotifier, List<NewsArticle>>(
+  () => NewsListNotifier(),
+);
+</file>
+
 <file path="lib/features/polls/data/models/poll_model.dart">
 import 'package:freezed_annotation/freezed_annotation.dart';
 
@@ -1999,435 +2239,6 @@ abstract class Poll with _$Poll {
   }) = _Poll;
 
   factory Poll.fromJson(Map<String, dynamic> json) => _$PollFromJson(json);
-}
-</file>
-
-<file path="lib/features/polls/presentation/providers/poll_provider.dart">
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../data/models/poll_model.dart';
-import '../../data/repositories/poll_repository.dart';
-
-final pollsProvider = StateNotifierProvider<PollsNotifier, AsyncValue<List<Poll>>>((ref) {
-  final repository = ref.watch(pollRepositoryProvider);
-  return PollsNotifier(repository)..fetchPolls();
-});
-
-class PollsNotifier extends StateNotifier<AsyncValue<List<Poll>>> {
-  final PollRepository _repository;
-
-  PollsNotifier(this._repository) : super(const AsyncValue.loading());
-
-  Future<void> fetchPolls() async {
-    try {
-      state = const AsyncValue.loading();
-      final polls = await _repository.getPolls();
-      state = AsyncValue.data(polls);
-    } catch (e, st) {
-      state = AsyncValue.error(e, st);
-    }
-  }
-
-  Future<void> vote(String pollId, String optionId) async {
-    if (state.value == null) return;
-    final previousState = state.value!;
-
-    try {
-      final updatedPoll = await _repository.vote(pollId, optionId);
-      
-      // Reactively update the specific poll in the list
-      state = AsyncValue.data(
-        previousState.map((p) => p.id == pollId ? updatedPoll : p).toList(),
-      );
-    } catch (e) {
-      rethrow;
-    }
-  }
-}
-
-// Reactive provider for a specific poll detail to keep UI in sync automatically
-final pollDetailProvider = Provider.family<Poll?, String>((ref, id) {
-  final pollsState = ref.watch(pollsProvider);
-  final polls = pollsState.value ?? [];
-  for (final p in polls) {
-    if (p.id == id) return p;
-  }
-  return null;
-});
-</file>
-
-<file path="lib/features/polls/presentation/screens/poll_detail_screen.dart">
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../providers/poll_provider.dart';
-import '../../data/models/poll_model.dart';
-
-class PollDetailScreen extends ConsumerStatefulWidget {
-  final String pollId;
-  const PollDetailScreen({super.key, required this.pollId});
-
-  @override
-  ConsumerState<PollDetailScreen> createState() => _PollDetailScreenState();
-}
-
-class _PollDetailScreenState extends ConsumerState<PollDetailScreen> {
-  String? _votingOptionId;
-
-  Future<void> _handleVote(String optionId, Poll poll) async {
-    if (poll.status != 'PUBLISHED') return;
-    
-    setState(() => _votingOptionId = optionId);
-    try {
-      await ref.read(pollsProvider.notifier).vote(poll.id, optionId);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Помилка обробки голосу: $e')),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _votingOptionId = null);
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // Watches the specific poll from the reactive provider
-    final poll = ref.watch(pollDetailProvider(widget.pollId));
-
-    if (poll == null) {
-      return Scaffold(
-        appBar: AppBar(),
-        body: const Center(child: Text('Опитування не знайдено')),
-      );
-    }
-
-    final isClosed = poll.status != 'PUBLISHED';
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Голосування', style: TextStyle(fontWeight: FontWeight.bold)),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  isClosed ? Icons.lock_outline : Icons.how_to_vote,
-                  color: isClosed ? Colors.grey : Colors.blue.shade700,
-                  size: 20,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  isClosed ? 'Завершено' : 'Активне опитування',
-                  style: TextStyle(
-                    color: isClosed ? Colors.grey : Colors.blue.shade700,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Text(
-              poll.title,
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, height: 1.3),
-            ),
-            if (poll.description != null) ...[
-              const SizedBox(height: 12),
-              Text(
-                poll.description!,
-                style: TextStyle(fontSize: 16, height: 1.5, color: Colors.grey.shade700),
-              ),
-            ],
-            const SizedBox(height: 32),
-            const Text(
-              'Оберіть варіант:',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 16),
-            ...poll.options.map((option) => _buildOptionCard(poll, option)),
-            const SizedBox(height: 32),
-            Center(
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  'Всього голосів: ${poll.totalVotes}',
-                  style: TextStyle(color: Colors.grey.shade800, fontWeight: FontWeight.w600),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildOptionCard(Poll poll, PollOption option) {
-    final isVotedByMe = poll.userVotedOptionId == option.id;
-    final isClosed = poll.status != 'PUBLISHED';
-    final isVoting = _votingOptionId == option.id;
-    
-    final double percentage = poll.totalVotes > 0 ? (option.votes / poll.totalVotes) : 0.0;
-    final String percentageText = '${(percentage * 100).toStringAsFixed(1)}%';
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(
-          color: isVotedByMe ? Colors.blue.shade600 : Colors.grey.shade300,
-          width: isVotedByMe ? 2 : 1,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          if (isVotedByMe)
-            BoxShadow(
-              color: Colors.blue.shade100.withOpacity(0.5),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
-            )
-        ],
-      ),
-      clipBehavior: Clip.hardEdge,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: isClosed || _votingOptionId != null ? null : () => _handleVote(option.id, poll),
-          child: Stack(
-            children: [
-              // Animated Background Fill Bar
-              Positioned.fill(
-                child: FractionallySizedBox(
-                  alignment: Alignment.centerLeft,
-                  widthFactor: percentage,
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 600),
-                    curve: Curves.easeOutCubic,
-                    color: isVotedByMe ? Colors.blue.shade50 : Colors.grey.shade100,
-                  ),
-                ),
-              ),
-              // Card Content
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 18.0),
-                child: Row(
-                  children: [
-                    if (isVoting)
-                      const SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(strokeWidth: 2.5),
-                      )
-                    else
-                      Icon(
-                        isVotedByMe ? Icons.radio_button_checked : Icons.radio_button_unchecked,
-                        color: isVotedByMe ? Colors.blue.shade600 : Colors.grey.shade400,
-                      ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Text(
-                        option.text,
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: isVotedByMe ? FontWeight.w700 : FontWeight.w500,
-                          color: Colors.black87,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          percentageText,
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                            color: isVotedByMe ? Colors.blue.shade700 : Colors.black87,
-                          ),
-                        ),
-                        Text(
-                          '${option.votes} чол.',
-                          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-</file>
-
-<file path="lib/features/polls/presentation/screens/polls_screen.dart">
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
-import '../providers/poll_provider.dart';
-import '../../data/models/poll_model.dart';
-
-class PollsScreen extends ConsumerStatefulWidget {
-  const PollsScreen({super.key});
-
-  @override
-  ConsumerState<PollsScreen> createState() => _PollsScreenState();
-}
-
-class _PollsScreenState extends ConsumerState<PollsScreen> {
-  @override
-  void initState() {
-    super.initState();
-    // Fetch polls only if not already loaded to preserve state during tab switching
-    Future.microtask(() {
-      if (ref.read(pollsProvider).value == null) {
-        ref.read(pollsProvider.notifier).fetchPolls();
-      }
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final pollsState = ref.watch(pollsProvider);
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Опитування', style: TextStyle(fontWeight: FontWeight.bold)),
-        centerTitle: true,
-      ),
-      body: pollsState.when(
-        data: (polls) {
-          if (polls.isEmpty) {
-            return const Center(child: Text('Немає активних опитувань', style: TextStyle(color: Colors.grey)));
-          }
-          return RefreshIndicator(
-            onRefresh: () => ref.read(pollsProvider.notifier).fetchPolls(),
-            child: ListView.separated(
-              padding: const EdgeInsets.all(16),
-              itemCount: polls.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 12),
-              itemBuilder: (context, index) => _PollCard(poll: polls[index]),
-            ),
-          );
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text('Помилка: $error', textAlign: TextAlign.center),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () => ref.read(pollsProvider.notifier).fetchPolls(),
-                child: const Text('Оновити'),
-              )
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _PollCard extends StatelessWidget {
-  final Poll poll;
-  const _PollCard({required this.poll});
-
-  @override
-  Widget build(BuildContext context) {
-    final isClosed = poll.status == 'ARCHIVED';
-    final isVoted = poll.userVotedOptionId != null;
-
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Colors.grey.shade200),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: () => context.push('/polls/${poll.id}'),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: isClosed ? Colors.grey.shade200 : Colors.blue.shade50,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      isClosed ? 'Завершено' : 'Активне',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: isClosed ? Colors.grey.shade700 : Colors.blue.shade700,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  if (isVoted)
-                    Icon(Icons.check_circle, color: Colors.blue.shade600, size: 22),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Text(
-                poll.title,
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-              ),
-              if (poll.description != null) ...[
-                const SizedBox(height: 8),
-                Text(
-                  poll.description!,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: Colors.grey.shade600),
-                ),
-              ],
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.people_alt_outlined, size: 16, color: Colors.grey.shade500),
-                      const SizedBox(width: 6),
-                      Text(
-                        '${poll.totalVotes}',
-                        style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey.shade700),
-                      ),
-                    ],
-                  ),
-                  Text(
-                    DateFormat('dd MMM yyyy').format(poll.createdAt),
-                    style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }
 </file>
 
@@ -2615,6 +2426,165 @@ final dioProvider = Provider<Dio>((ref) {
 });
 </file>
 
+<file path="lib/features/polls/presentation/providers/poll_provider.dart">
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../data/models/poll_model.dart';
+import '../../data/repositories/poll_repository.dart';
+
+final pollsProvider = StateNotifierProvider<PollsNotifier, AsyncValue<List<Poll>>>((ref) {
+  final repository = ref.watch(pollRepositoryProvider);
+  return PollsNotifier(repository)..fetchPolls();
+});
+
+class PollsNotifier extends StateNotifier<AsyncValue<List<Poll>>> {
+  final PollRepository _repository;
+
+  PollsNotifier(this._repository) : super(const AsyncValue.loading());
+
+  Future<void> fetchPolls() async {
+    try {
+      state = const AsyncValue.loading();
+      
+      // Fetch both active (default) and archived polls concurrently
+      final results = await Future.wait([
+        _repository.getPolls(), // GET /polls?status=PUBLISHED (by default)
+        _repository.getPolls(status: 'ARCHIVED'), // GET /polls?status=ARCHIVED
+      ]);
+      
+      final activePolls = results[0];
+      final archivedPolls = results[1];
+      
+      // Combine and remove any potential duplicates by ID
+      final allPolls = [...activePolls, ...archivedPolls];
+      final uniquePolls = {for (var p in allPolls) p.id: p}.values.toList();
+      
+      state = AsyncValue.data(uniquePolls);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
+  }
+
+  Future<void> vote(String pollId, String optionId) async {
+    if (state.value == null) return;
+    final previousState = state.value!;
+
+    try {
+      final updatedPoll = await _repository.vote(pollId, optionId);
+      
+      // Reactively update the specific poll in the list
+      state = AsyncValue.data(
+        previousState.map((p) => p.id == pollId ? updatedPoll : p).toList(),
+      );
+    } catch (e) {
+      rethrow;
+    }
+  }
+}
+
+// Reactive provider for a specific poll detail to keep UI in sync automatically
+final pollDetailProvider = Provider.family<Poll?, String>((ref, id) {
+  final pollsState = ref.watch(pollsProvider);
+  final polls = pollsState.value ?? [];
+  for (final p in polls) {
+    if (p.id == id) return p;
+  }
+  return null;
+});
+</file>
+
+<file path="lib/core/router/app_router.dart">
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+// Оновіть шлях імпорту до вашого auth_provider.dart, якщо він знаходиться в іншій папці
+import '../../features/auth/providers/auth_provider.dart'; 
+import '../../features/home/presentation/home_shell_screen.dart';
+import '../../features/auth/presentation/screens/login_screen.dart';
+import '../../features/polls/presentation/screens/polls_screen.dart';
+import '../../features/polls/presentation/screens/poll_detail_screen.dart';
+
+final routerProvider = Provider<GoRouter>((ref) {
+  final authState = ref.watch(authStateProvider);
+
+  return GoRouter(
+    initialLocation: '/news',
+    redirect: (context, state) {
+      if (authState is AsyncLoading) return null; 
+
+      final isAuthenticated = authState.valueOrNull ?? false;
+      final isLoggingIn = state.matchedLocation == '/login';
+
+      if (!isAuthenticated && !isLoggingIn) return '/login';
+      if (isAuthenticated && isLoggingIn) return '/news';
+      
+      return null;
+    },
+    routes: [
+      GoRoute(
+        path: '/login',
+        builder: (context, state) => const LoginScreen(),
+      ),
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, navigationShell) {
+          return HomeShellScreen(navigationShell: navigationShell);
+        },
+        branches: [
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/news',
+                builder: (context, state) => const Scaffold(body: Center(child: Text('Новини'))),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/documents',
+                builder: (context, state) => const Scaffold(body: Center(child: Text('Документи'))),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/projects',
+                builder: (context, state) => const Scaffold(body: Center(child: Text('Проєкти'))),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/polls',
+                builder: (context, state) => const PollsScreen(),
+                routes: [
+                  GoRoute(
+                    path: ':id',
+                    builder: (context, state) {
+                      final pollId = state.pathParameters['id']!;
+                      return PollDetailScreen(pollId: pollId);
+                    },
+                  ),
+                ],
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/chats',
+                builder: (context, state) => const Scaffold(body: Center(child: Text('Чати'))),
+              ),
+            ],
+          ),
+        ],
+      ),
+    ],
+  );
+});
+</file>
+
 <file path="lib/features/auth/presentation/screens/login_screen.dart">
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -2685,7 +2655,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 borderRadius: BorderRadius.circular(24),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
+                    color: Colors.black.withValues(alpha: 0.05),
                     blurRadius: 24,
                     offset: const Offset(0, 8),
                   ),
@@ -2819,8 +2789,10 @@ class PollRepository {
 
   PollRepository(this._dio);
 
-  Future<List<Poll>> getPolls() async {
-    final response = await _dio.get('/polls');
+  Future<List<Poll>> getPolls({String? status}) async {
+    final queryParameters = status != null ? {'status': status} : null;
+    final response = await _dio.get('/polls', queryParameters: queryParameters);
+    
     final data = response.data['data'] as List;
     return data.map((json) => Poll.fromJson(json as Map<String, dynamic>)).toList();
   }
@@ -2836,6 +2808,791 @@ class PollRepository {
       data: {'optionId': optionId},
     );
     return Poll.fromJson(response.data as Map<String, dynamic>);
+  }
+}
+</file>
+
+<file path="lib/features/polls/presentation/screens/poll_detail_screen.dart">
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
+import '../providers/poll_provider.dart';
+import '../../data/models/poll_model.dart';
+
+class PollDetailScreen extends ConsumerStatefulWidget {
+  final String pollId;
+  const PollDetailScreen({super.key, required this.pollId});
+
+  @override
+  ConsumerState<PollDetailScreen> createState() => _PollDetailScreenState();
+}
+
+class _PollDetailScreenState extends ConsumerState<PollDetailScreen> {
+  String? _pendingOptionId;
+  bool _isEditing = false;
+  bool _isSubmitting = false;
+
+  Future<void> _submitVote(Poll poll) async {
+    if (_pendingOptionId == null || poll.status != 'PUBLISHED') return;
+
+    // Запобігання повторній відправці того самого варіанту (уникнення анулювання/зайвих запитів)
+    if (_pendingOptionId == poll.userVotedOptionId) {
+      setState(() {
+        _isEditing = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Голос залишено без змін'),
+          backgroundColor: Colors.blue,
+        ),
+      );
+      return;
+    }
+    
+    setState(() => _isSubmitting = true);
+    try {
+      await ref.read(pollsProvider.notifier).vote(poll.id, _pendingOptionId!);
+      if (mounted) {
+        setState(() {
+          _isEditing = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Ваш голос враховано!'), backgroundColor: Colors.green),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Помилка обробки голосу: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final poll = ref.watch(pollDetailProvider(widget.pollId));
+
+    if (poll == null) {
+      return Scaffold(
+        appBar: AppBar(),
+        body: const Center(child: Text('Опитування не знайдено')),
+      );
+    }
+
+    // Додана локальна перевірка на протермінованість
+    final isLocallyExpired = poll.expiresAt != null && poll.expiresAt!.isBefore(DateTime.now());
+    final isClosed = poll.status != 'PUBLISHED' || isLocallyExpired;
+    
+    final hasVoted = poll.userVotedOptionId != null;
+    final isVotingActive = !isClosed && (!hasVoted || _isEditing);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Голосування', style: TextStyle(fontWeight: FontWeight.bold)),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 24.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 12,
+              runSpacing: 8,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      isClosed ? Icons.lock_outline : Icons.how_to_vote,
+                      color: isClosed ? Colors.grey : Colors.blue.shade700,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      isClosed ? 'Завершено' : 'Активне опитування',
+                      style: TextStyle(
+                        color: isClosed ? Colors.grey : Colors.blue.shade700,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+                // Бейдж з таймером
+                if (!isClosed && poll.expiresAt != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade50,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.orange.shade200),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.timer_outlined, size: 16, color: Colors.orange.shade700),
+                        const SizedBox(width: 6),
+                        Text(
+                          'До ${DateFormat('dd.MM.yyyy HH:mm').format(poll.expiresAt!.toLocal())}',
+                          style: TextStyle(
+                            color: Colors.orange.shade700,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Text(
+              poll.title,
+              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, height: 1.3),
+            ),
+            if (poll.description != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                poll.description!,
+                style: TextStyle(fontSize: 16, height: 1.5, color: Colors.grey.shade700),
+              ),
+            ],
+            const SizedBox(height: 32),
+            Text(
+              isClosed ? 'Результати опитування:' : 'Оберіть варіант:',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 16),
+            ...poll.options.map((option) {
+              final maxVotes = poll.options.isEmpty ? 0 : poll.options.map((o) => o.votes).reduce((a, b) => a > b ? a : b);
+              return _buildOptionCard(poll, option, isVotingActive, isClosed, maxVotes);
+            }),
+            const SizedBox(height: 32),
+            Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  'Всього голосів: ${poll.totalVotes}',
+                  style: TextStyle(color: Colors.grey.shade800, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ),
+            const SizedBox(height: 100), // Відступ для нижньої панелі з кнопками
+          ],
+        ),
+      ),
+      bottomSheet: isClosed ? null : _buildBottomActions(poll, hasVoted, isVotingActive),
+    );
+  }
+
+  Widget _buildBottomActions(Poll poll, bool hasVoted, bool isVotingActive) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, -5),
+          )
+        ],
+      ),
+      child: SafeArea(
+        child: isVotingActive
+            ? Row(
+                children: [
+                  if (_isEditing) ...[
+                    Expanded(
+                      flex: 1,
+                      child: OutlinedButton(
+                        onPressed: _isSubmitting
+                            ? null
+                            : () => setState(() {
+                                  _isEditing = false;
+                                  _pendingOptionId = null;
+                                }),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: const Text('Скасувати'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                  ],
+                  Expanded(
+                    flex: 2,
+                    child: FilledButton(
+                      onPressed: (_pendingOptionId == null || _isSubmitting)
+                          ? null
+                          : () => _submitVote(poll),
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: _isSubmitting
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            )
+                          : const Text('Проголосувати', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                ],
+              )
+            : SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () => setState(() {
+                    _isEditing = true;
+                    _pendingOptionId = poll.userVotedOptionId;
+                  }),
+                  icon: const Icon(Icons.edit),
+                  label: const Text('Змінити голос', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
+      ),
+    );
+  }
+
+  Widget _buildOptionCard(Poll poll, PollOption option, bool isVotingActive, bool isClosed, int maxVotes) {
+    final isSelected = isVotingActive 
+        ? _pendingOptionId == option.id 
+        : poll.userVotedOptionId == option.id;
+        
+    final double percentage = poll.totalVotes > 0 ? (option.votes / poll.totalVotes) : 0.0;
+    final String percentageText = '${(percentage * 100).toStringAsFixed(1)}%';
+    
+    final isWinner = isClosed && option.votes == maxVotes && maxVotes > 0;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          if (isWinner)
+            BoxShadow(
+              color: Colors.green.shade100.withValues(alpha: 0.5),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            )
+          else if (isSelected)
+            BoxShadow(
+              color: Colors.blue.shade100.withValues(alpha: 0.5),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            )
+        ],
+      ),
+      foregroundDecoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isWinner ? Colors.green.shade500 : (isSelected ? Colors.blue.shade600 : Colors.grey.shade300),
+          width: (isWinner || isSelected) ? 2 : 1,
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: isVotingActive 
+              ? () => setState(() => _pendingOptionId = option.id) 
+              : null,
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: FractionallySizedBox(
+                  alignment: Alignment.centerLeft,
+                  widthFactor: percentage,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 600),
+                    curve: Curves.easeOutCubic,
+                    color: isWinner ? Colors.green.shade50 : (isSelected ? Colors.blue.shade50 : Colors.grey.shade100),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 18.0),
+                child: Row(
+                  children: [
+                    if (!isClosed) ...[
+                      Icon(
+                        isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                        color: isSelected ? Colors.blue.shade600 : Colors.grey.shade400,
+                      ),
+                      const SizedBox(width: 16),
+                    ],
+                    Expanded(
+                      child: Text(
+                        option.text,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: (isWinner || isSelected) ? FontWeight.w700 : FontWeight.w500,
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    if (!isVotingActive || poll.userVotedOptionId != null || isClosed) 
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (isWinner) ...[
+                            Icon(Icons.emoji_events, color: Colors.green.shade600, size: 24),
+                            const SizedBox(width: 10),
+                          ] else if (isClosed && isSelected) ...[
+                            Icon(Icons.check_circle, color: Colors.blue.shade600, size: 20),
+                            const SizedBox(width: 10),
+                          ],
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                percentageText,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                  color: isWinner ? Colors.green.shade700 : (isSelected ? Colors.blue.shade700 : Colors.black87),
+                                ),
+                              ),
+                              Text(
+                                '${option.votes} чол.',
+                                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+</file>
+
+<file path="lib/features/polls/presentation/screens/polls_screen.dart">
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
+import '../providers/poll_provider.dart';
+import '../../data/models/poll_model.dart';
+
+class PollsScreen extends ConsumerStatefulWidget {
+  const PollsScreen({super.key});
+
+  @override
+  ConsumerState<PollsScreen> createState() => _PollsScreenState();
+}
+
+enum PollFilter { all, active, unvoted, voted, closed }
+
+class _PollsScreenState extends ConsumerState<PollsScreen> {
+  PollFilter _currentFilter = PollFilter.active;
+
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() {
+      if (ref.read(pollsProvider).value == null) {
+        ref.read(pollsProvider.notifier).fetchPolls();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final pollsState = ref.watch(pollsProvider);
+
+    return Scaffold(
+      backgroundColor: Colors.grey.shade50,
+      appBar: AppBar(
+        title: const Text('Опитування', style: TextStyle(fontWeight: FontWeight.bold)),
+        centerTitle: true,
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+      ),
+      body: Column(
+        children: [
+          _buildFilterBar(),
+          Expanded(
+            child: pollsState.when(
+              data: (polls) {
+                final filteredPolls = polls.where((p) {
+                  if (p.status == 'DRAFT') return false;
+
+                  final isLocallyExpired = p.expiresAt != null && p.expiresAt!.isBefore(DateTime.now());
+                  final isClosed = p.status != 'PUBLISHED' || isLocallyExpired;
+                  final isVoted = p.userVotedOptionId != null;
+
+                  switch (_currentFilter) {
+                    case PollFilter.all:
+                      return true;
+                    case PollFilter.active:
+                      return !isClosed;
+                    case PollFilter.unvoted:
+                      return !isClosed && !isVoted;
+                    case PollFilter.voted:
+                      return isVoted;
+                    case PollFilter.closed:
+                      return isClosed;
+                  }
+                }).toList();
+
+                // Розумне сортування
+                filteredPolls.sort((a, b) {
+                  final aExpired = a.expiresAt != null && a.expiresAt!.isBefore(DateTime.now());
+                  final aClosed = a.status != 'PUBLISHED' || aExpired;
+                  
+                  final bExpired = b.expiresAt != null && b.expiresAt!.isBefore(DateTime.now());
+                  final bClosed = b.status != 'PUBLISHED' || bExpired;
+
+                  // 1. Активні завжди вище закритих
+                  if (aClosed != bClosed) return aClosed ? 1 : -1;
+
+                  final aVoted = a.userVotedOptionId != null;
+                  final bVoted = b.userVotedOptionId != null;
+
+                  // 2. Непройдені завжди вище пройдених (серед активних)
+                  if (aVoted != bVoted) return aVoted ? 1 : -1;
+
+                  // 3. За датою створення (найновіші зверху)
+                  return b.createdAt.compareTo(a.createdAt);
+                });
+
+                if (filteredPolls.isEmpty) {
+                  return _buildEmptyState();
+                }
+
+                return RefreshIndicator(
+                  onRefresh: () => ref.read(pollsProvider.notifier).fetchPolls(),
+                  child: ListView.separated(
+                    padding: const EdgeInsets.only(top: 8, left: 16, right: 16, bottom: 24),
+                    itemCount: filteredPolls.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    itemBuilder: (context, index) => _PollCard(poll: filteredPolls[index]),
+                  ),
+                );
+              },
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, _) => Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text('Помилка: $error', textAlign: TextAlign.center),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: () => ref.read(pollsProvider.notifier).fetchPolls(),
+                      child: const Text('Оновити'),
+                    )
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterBar() {
+    return Container(
+      width: double.infinity,
+      color: Colors.white,
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Row(
+          children: PollFilter.values.map((filter) {
+            final isSelected = _currentFilter == filter;
+            return Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: ChoiceChip(
+                label: Text(_getFilterName(filter)),
+                selected: isSelected,
+                onSelected: (selected) {
+                  if (selected) setState(() => _currentFilter = filter);
+                },
+                selectedColor: Colors.blue.shade600,
+                labelStyle: TextStyle(
+                  color: isSelected ? Colors.white : Colors.grey.shade700,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                ),
+                backgroundColor: Colors.grey.shade100,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  side: BorderSide(
+                    color: isSelected ? Colors.blue.shade600 : Colors.grey.shade200,
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+
+  String _getFilterName(PollFilter filter) {
+    switch (filter) {
+      case PollFilter.all: return 'Усі';
+      case PollFilter.active: return 'Активні';
+      case PollFilter.unvoted: return 'Не пройдені';
+      case PollFilter.voted: return 'Пройдені';
+      case PollFilter.closed: return 'Завершені';
+    }
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.poll_outlined, size: 64, color: Colors.grey.shade300),
+          const SizedBox(height: 16),
+          Text(
+            'Немає опитувань',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey.shade600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'За обраним фільтром нічого не знайдено',
+            style: TextStyle(color: Colors.grey.shade500),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PollCard extends StatelessWidget {
+  final Poll poll;
+  const _PollCard({required this.poll});
+
+  @override
+  Widget build(BuildContext context) {
+    final isLocallyExpired = poll.expiresAt != null && poll.expiresAt!.isBefore(DateTime.now());
+    final isClosed = poll.status != 'PUBLISHED' || isLocallyExpired; 
+    final isVoted = poll.userVotedOptionId != null;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+        border: Border.all(color: Colors.grey.shade100),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => context.push('/polls/${poll.id}'),
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: isClosed ? Colors.grey.shade100 : Colors.blue.shade50,
+                              borderRadius: BorderRadius.circular(30),
+                              border: Border.all(
+                                color: isClosed ? Colors.grey.shade300 : Colors.blue.shade200,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  isClosed ? Icons.lock_outline : Icons.poll_outlined,
+                                  size: 14,
+                                  color: isClosed ? Colors.grey.shade700 : Colors.blue.shade700,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  isClosed ? 'Завершено' : 'Активне',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: isClosed ? Colors.grey.shade700 : Colors.blue.shade700,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (!isClosed && poll.expiresAt != null)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: Colors.orange.shade50,
+                                borderRadius: BorderRadius.circular(30),
+                                border: Border.all(color: Colors.orange.shade200),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.timer_outlined, size: 14, color: Colors.orange.shade700),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    DateFormat('dd.MM HH:mm').format(poll.expiresAt!.toLocal()),
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.orange.shade700,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      DateFormat('dd MMM yyyy').format(poll.createdAt.toLocal()),
+                      style: TextStyle(
+                        color: Colors.grey.shade500,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  poll.title,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    height: 1.3,
+                    color: Colors.black87,
+                  ),
+                ),
+                if (poll.description != null && poll.description!.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    poll.description!,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Colors.grey.shade600,
+                      height: 1.4,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 16),
+                Divider(color: Colors.grey.shade100, height: 1),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade50,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Icon(Icons.people_alt_outlined, size: 18, color: Colors.grey.shade600),
+                        ),
+                        const SizedBox(width: 12),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Учасників',
+                              style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                            ),
+                            Text(
+                              '${poll.totalVotes}',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.grey.shade800,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    if (isVoted)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.green.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.check_circle, color: Colors.green.shade600, size: 16),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Проголосовано',
+                              style: TextStyle(
+                                color: Colors.green.shade700,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    else if (!isClosed)
+                      Icon(Icons.arrow_forward_ios, size: 16, color: Colors.blue.shade300),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 </file>
@@ -2996,6 +3753,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.0.7"
+  csslib:
+    dependency: transitive
+    description:
+      name: csslib
+      sha256: "09bad715f418841f976c77db72d5398dc1253c21fb9c0c7f0b0b985860b2d58e"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.2"
   dart_style:
     dependency: transitive
     description:
@@ -3065,6 +3830,14 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
+  flutter_html:
+    dependency: "direct main"
+    description:
+      name: flutter_html
+      sha256: "38a2fd702ffdf3243fb7441ab58aa1bc7e6922d95a50db76534de8260638558d"
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.0.0"
   flutter_lints:
     dependency: "direct dev"
     description:
@@ -3187,6 +3960,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.0.2"
+  html:
+    dependency: transitive
+    description:
+      name: html
+      sha256: "6d1264f2dffa1b1101c25a91dff0dc2daee4c18e87cd8538729773c073dbf602"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.15.6"
   http_multi_server:
     dependency: transitive
     description:
@@ -3291,6 +4072,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "6.1.0"
+  list_counter:
+    dependency: transitive
+    description:
+      name: list_counter
+      sha256: c447ae3dfcd1c55f0152867090e67e219d42fe6d4f2807db4bbe8b8d69912237
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.2"
   logging:
     dependency: transitive
     description:
@@ -3658,6 +4447,7 @@ dependencies:
   dio: ^5.11.0
   flutter:
     sdk: flutter
+  flutter_html: ^3.0.0
   flutter_riverpod: ^2.6.1
   flutter_secure_storage: ^10.3.1
   freezed_annotation: ^3.1.0
@@ -3675,99 +4465,6 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-</file>
-
-<file path="lib/core/router/app_router.dart">
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-// Оновіть шлях імпорту до вашого auth_provider.dart, якщо він знаходиться в іншій папці
-import '../../features/auth/providers/auth_provider.dart'; 
-import '../../features/home/presentation/home_shell_screen.dart';
-import '../../features/auth/presentation/screens/login_screen.dart';
-import '../../features/polls/presentation/screens/polls_screen.dart';
-import '../../features/polls/presentation/screens/poll_detail_screen.dart';
-
-final routerProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authStateProvider);
-
-  return GoRouter(
-    initialLocation: '/news',
-    redirect: (context, state) {
-      if (authState is AsyncLoading) return null; 
-
-      final isAuthenticated = authState.valueOrNull ?? false;
-      final isLoggingIn = state.matchedLocation == '/login';
-
-      if (!isAuthenticated && !isLoggingIn) return '/login';
-      if (isAuthenticated && isLoggingIn) return '/news';
-      
-      return null;
-    },
-    routes: [
-      GoRoute(
-        path: '/login',
-        builder: (context, state) => const LoginScreen(),
-      ),
-      StatefulShellRoute.indexedStack(
-        builder: (context, state, navigationShell) {
-          return HomeShellScreen(navigationShell: navigationShell);
-        },
-        branches: [
-          StatefulShellBranch(
-            routes: [
-              GoRoute(
-                path: '/news',
-                builder: (context, state) => const Scaffold(body: Center(child: Text('Новини'))),
-              ),
-            ],
-          ),
-          StatefulShellBranch(
-            routes: [
-              GoRoute(
-                path: '/documents',
-                builder: (context, state) => const Scaffold(body: Center(child: Text('Документи'))),
-              ),
-            ],
-          ),
-          StatefulShellBranch(
-            routes: [
-              GoRoute(
-                path: '/projects',
-                builder: (context, state) => const Scaffold(body: Center(child: Text('Проєкти'))),
-              ),
-            ],
-          ),
-          StatefulShellBranch(
-            routes: [
-              GoRoute(
-                path: '/polls',
-                builder: (context, state) => const PollsScreen(),
-                routes: [
-                  GoRoute(
-                    path: ':id',
-                    builder: (context, state) {
-                      final pollId = state.pathParameters['id']!;
-                      return PollDetailScreen(pollId: pollId);
-                    },
-                  ),
-                ],
-              ),
-            ],
-          ),
-          StatefulShellBranch(
-            routes: [
-              GoRoute(
-                path: '/chats',
-                builder: (context, state) => const Scaffold(body: Center(child: Text('Чати'))),
-              ),
-            ],
-          ),
-        ],
-      ),
-    ],
-  );
-});
 </file>
 
 </files>
