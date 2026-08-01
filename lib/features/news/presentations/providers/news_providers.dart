@@ -8,7 +8,15 @@ final newsDetailProvider = FutureProvider.family<NewsArticle, String>((ref, id) 
   return repository.getNewsById(id);
 });
 
-// AsyncNotifier для списку новин з підтримкою пагінації
+// Провайдер для списку категорій
+final Provider<Future<List<NewsCategory>>> newsCategoriesProvider = Provider((ref) {
+  return ref.watch(newsRepositoryProvider).getCategories();
+});
+
+// Провайдер для збереження обраної категорії (null = Усі новини)
+final StateProvider<String?> selectedCategoryProvider = StateProvider<String?>((ref) => null);
+
+// AsyncNotifier для списку новин з підтримкою пагінації та фільтрації
 class NewsListNotifier extends AsyncNotifier<List<NewsArticle>> {
   int _currentPage = 1;
   bool _hasMore = true;
@@ -19,12 +27,18 @@ class NewsListNotifier extends AsyncNotifier<List<NewsArticle>> {
   @override
   Future<List<NewsArticle>> build() async {
     _currentPage = 1;
-    return _fetchPage(1);
+    // Відстежуємо обрану категорію. При її зміні метод build викличеться заново!
+    final categoryId = ref.watch(selectedCategoryProvider);
+    return _fetchPage(1, categoryId: categoryId);
   }
 
-  Future<List<NewsArticle>> _fetchPage(int page) async {
+  Future<List<NewsArticle>> _fetchPage(int page, {String? categoryId}) async {
     final repository = ref.read(newsRepositoryProvider);
-    final response = await repository.getNews(page: page, limit: 10);
+    final response = await repository.getNews(
+      page: page, 
+      limit: 10,
+      categoryId: categoryId,
+    );
     
     _hasMore = response.meta.page < response.meta.lastPage;
     return response.data;
@@ -35,9 +49,10 @@ class NewsListNotifier extends AsyncNotifier<List<NewsArticle>> {
 
     _isFetching = true;
     _currentPage++;
+    final categoryId = ref.read(selectedCategoryProvider);
     
     try {
-      final newArticles = await _fetchPage(_currentPage);
+      final newArticles = await _fetchPage(_currentPage, categoryId: categoryId);
       final currentArticles = state.value ?? [];
       
       state = AsyncValue.data([...currentArticles, ...newArticles]);

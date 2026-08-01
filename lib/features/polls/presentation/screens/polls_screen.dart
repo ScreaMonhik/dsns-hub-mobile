@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:dsns_hub/core/presentation/widgets/filter_choice_chip.dart';
 import '../providers/poll_provider.dart';
 import '../../data/models/poll_model.dart';
 
@@ -124,9 +125,11 @@ class _PollsScreenState extends ConsumerState<PollsScreen> {
   }
 
   Widget _buildFilterBar() {
+    final theme = Theme.of(context);
+    
     return Container(
       width: double.infinity,
-      color: Colors.white,
+      color: theme.colorScheme.surface,
       padding: const EdgeInsets.symmetric(vertical: 12),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
@@ -134,27 +137,14 @@ class _PollsScreenState extends ConsumerState<PollsScreen> {
         child: Row(
           children: PollFilter.values.map((filter) {
             final isSelected = _currentFilter == filter;
-            return Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: ChoiceChip(
-                label: Text(_getFilterName(filter)),
-                selected: isSelected,
-                onSelected: (selected) {
-                  if (selected) setState(() => _currentFilter = filter);
-                },
-                selectedColor: Colors.blue.shade600,
-                labelStyle: TextStyle(
-                  color: isSelected ? Colors.white : Colors.grey.shade700,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                ),
-                backgroundColor: Colors.grey.shade100,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                  side: BorderSide(
-                    color: isSelected ? Colors.blue.shade600 : Colors.grey.shade200,
-                  ),
-                ),
-              ),
+            return FilterChoiceChip(
+              label: _getFilterName(filter),
+              isSelected: isSelected,
+              onSelected: () {
+                if (!isSelected) {
+                  setState(() => _currentFilter = filter);
+                }
+              },
             );
           }).toList(),
         ),

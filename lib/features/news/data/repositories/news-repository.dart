@@ -36,6 +36,13 @@ class NewsRepository {
     return NewsArticle.fromJson(response.data);
   }
 
+  Future<List<NewsCategory>> getCategories() async {
+    final response = await _dio.get('/news/categories');
+    // Обробляємо як прямий масив, так і обгорнутий у поле 'data'
+    final data = response.data is List ? response.data : response.data['data'];
+    return (data as List).map((json) => NewsCategory.fromJson(json)).toList();
+  }
+
   Future<void> vote(String newsId, String voteType) async {
     try {
       await _dio.post(
