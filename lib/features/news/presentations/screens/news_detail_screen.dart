@@ -80,15 +80,20 @@ class _NewsDetailScreenState extends ConsumerState<NewsDetailScreen> {
         data: (article) {
           // Автоскрол до коментарів при переході
           if (widget.scrollToComments && !_hasScrolled) {
+            _hasScrolled = true; // Set immediately to prevent repeated triggers
+            
             WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (_commentsSectionKey.currentContext != null) {
-                Scrollable.ensureVisible(
-                  _commentsSectionKey.currentContext!,
-                  duration: const Duration(milliseconds: 500),
-                  curve: Curves.easeInOut,
-                );
-                _hasScrolled = true;
-              }
+              // Add a delay to allow dynamic content (TipTap, Images) to fully render and calculate exact layout height
+              Future.delayed(const Duration(milliseconds: 600), () {
+                if (_commentsSectionKey.currentContext != null && mounted) {
+                  Scrollable.ensureVisible(
+                    _commentsSectionKey.currentContext!,
+                    duration: const Duration(milliseconds: 600),
+                    curve: Curves.easeInOut,
+                    alignment: 0.05, // Align slightly below the top edge of the screen
+                  );
+                }
+              });
             });
           }
 

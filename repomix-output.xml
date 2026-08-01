@@ -142,6 +142,7 @@ lib/
       dio_provider.dart
     presentation/
       widgets/
+        auth_network_image.dart
         filter_choice_chip.dart
     router/
       app_router.dart
@@ -1740,6 +1741,81 @@ Runner/GeneratedPluginRegistrant.*
 !default.perspectivev3
 </file>
 
+<file path="lib/core/presentation/widgets/auth_network_image.dart">
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../storage/secure_storage_provider.dart';
+
+class AuthNetworkImage extends ConsumerWidget {
+  final String imageUrl;
+  final String baseUrl;
+  final BoxFit fit;
+  final double? width;
+  final double? height;
+  final Widget Function(BuildContext, Object, StackTrace?)? errorBuilder;
+
+  const AuthNetworkImage({
+    super.key,
+    required this.imageUrl,
+    this.baseUrl = 'http://10.0.2.2:3000',
+    this.fit = BoxFit.cover,
+    this.width,
+    this.height,
+    this.errorBuilder,
+  });
+
+  String get _fullUrl {
+    if (imageUrl.startsWith('http')) {
+      return imageUrl;
+    }
+    final formattedPath = imageUrl.startsWith('/') ? imageUrl : '/$imageUrl';
+    return '$baseUrl$formattedPath';
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final storage = ref.watch(secureStorageProvider);
+
+    return FutureBuilder<String?>(
+      future: storage.read(key: 'jwt_token'),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Container(
+            width: width,
+            height: height,
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            child: const Center(
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          );
+        }
+
+        final token = snapshot.data;
+        final headers = <String, String>{};
+        if (token != null && token.isNotEmpty) {
+          headers['Authorization'] = 'Bearer $token';
+        }
+
+        return Image.network(
+          _fullUrl,
+          width: width,
+          height: height,
+          fit: fit,
+          headers: headers,
+          errorBuilder: errorBuilder ??
+              (context, error, stackTrace) => Container(
+                    width: width,
+                    height: height,
+                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                    child: const Icon(Icons.image_not_supported, size: 48, color: Colors.grey),
+                  ),
+        );
+      },
+    );
+  }
+}
+</file>
+
 <file path="lib/core/presentation/widgets/filter_choice_chip.dart">
 import 'package:flutter/material.dart';
 
@@ -2278,865 +2354,6 @@ class AuthNotifier extends StateNotifier<AsyncValue<bool>> {
 }
 </file>
 
-<file path="lib/features/news/presentations/screens/news_detail_screen.dart">
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
-import '../providers/news_providers.dart';
-import '../widgets/tiptap_renderer.dart';
-import '../../data/models/news_models.dart';
-
-class NewsDetailScreen extends ConsumerStatefulWidget {
-  final String newsId;
-  final bool scrollToComments;
-
-  const NewsDetailScreen({
-    super.key, 
-    required this.newsId,
-    this.scrollToComments = false,
-  });
-
-  @override
-  ConsumerState<NewsDetailScreen> createState() => _NewsDetailScreenState();
-}
-
-class _NewsDetailScreenState extends ConsumerState<NewsDetailScreen> {
-  final TextEditingController _commentController = TextEditingController();
-  final ScrollController _scrollController = ScrollController();
-  final GlobalKey _commentsSectionKey = GlobalKey();
-  
-  bool _hasScrolled = false;
-  bool _isSubmitting = false;
-
-  @override
-  void dispose() {
-    _commentController.dispose();
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _submitComment() async {
-    final text = _commentController.text.trim();
-    if (text.isEmpty) return;
-
-    setState(() => _isSubmitting = true);
-    try {
-      await ref.read(newsInteractionProvider).addComment(widget.newsId, text);
-      _commentController.clear();
-      FocusScope.of(context).unfocus();
-      
-      // Скрол до кінця після додавання коментаря
-      Future.delayed(const Duration(milliseconds: 300), () {
-        if (_scrollController.hasClients) {
-          _scrollController.animateTo(
-            _scrollController.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOut,
-          );
-        }
-      });
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isSubmitting = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final newsState = ref.watch(newsDetailProvider(widget.newsId));
-    final theme = Theme.of(context);
-
-    return Scaffold(
-      backgroundColor: theme.colorScheme.surface,
-      appBar: AppBar(
-        title: const Text('Новина'),
-      ),
-      body: newsState.when(
-        data: (article) {
-          // Автоскрол до коментарів при переході
-          if (widget.scrollToComments && !_hasScrolled) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (_commentsSectionKey.currentContext != null) {
-                Scrollable.ensureVisible(
-                  _commentsSectionKey.currentContext!,
-                  duration: const Duration(milliseconds: 500),
-                  curve: Curves.easeInOut,
-                );
-                _hasScrolled = true;
-              }
-            });
-          }
-
-          return Column(
-            children: [
-              Expanded(
-                child: SingleChildScrollView(
-                  controller: _scrollController,
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Категорія та Дата (без автора)
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          if (article.category != null)
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: theme.colorScheme.primaryContainer,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                article.category!.name,
-                                style: theme.textTheme.labelMedium?.copyWith(
-                                  color: theme.colorScheme.onPrimaryContainer,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            )
-                          else
-                            const SizedBox.shrink(),
-                          Text(
-                            DateFormat('dd MMMM yyyy, HH:mm').format(article.createdAt.toLocal()),
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        article.title,
-                        style: theme.textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          height: 1.3,
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      if (article.imageUrl != null && article.imageUrl!.isNotEmpty) ...[
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(16),
-                          child: Image.network(
-                            article.imageUrl!,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                      ],
-                      // Рендерер JSON від TipTap
-                      TipTapRenderer(jsonContent: article.content),
-                      
-                      const SizedBox(height: 32),
-                      const Divider(),
-                      const SizedBox(height: 8),
-                      // Панель дій (Лайки / Дизлайки)
-                      Row(
-                        children: [
-                          _buildInteractionButton(
-                            icon: article.votes.any((v) => v.voteType == 'UPVOTE') 
-                                ? Icons.thumb_up 
-                                : Icons.thumb_up_alt_outlined,
-                            label: '${article.upvotes > 0 ? article.upvotes : (article.count?.likes ?? 0)}',
-                            isActive: article.votes.any((v) => v.voteType == 'UPVOTE'),
-                            activeColor: Colors.green.shade600,
-                            onTap: () async {
-                              try {
-                                await ref.read(newsInteractionProvider).vote(article.id, 'UPVOTE');
-                              } catch (e) {
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: Colors.red));
-                                }
-                              }
-                            },
-                          ),
-                          const SizedBox(width: 16),
-                          _buildInteractionButton(
-                            icon: article.votes.any((v) => v.voteType == 'DOWNVOTE') 
-                                ? Icons.thumb_down 
-                                : Icons.thumb_down_alt_outlined,
-                            label: '${article.downvotes > 0 ? article.downvotes : (article.count?.dislikes ?? 0)}',
-                            isActive: article.votes.any((v) => v.voteType == 'DOWNVOTE'),
-                            activeColor: Colors.red.shade600,
-                            onTap: () async {
-                              try {
-                                await ref.read(newsInteractionProvider).vote(article.id, 'DOWNVOTE');
-                              } catch (e) {
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: Colors.red));
-                                }
-                              }
-                            },
-                          ),
-                          const Spacer(),
-                          Icon(Icons.comment_outlined, size: 20, color: theme.colorScheme.outline),
-                          const SizedBox(width: 8),
-                          Text(
-                            '${article.count?.comments ?? 0}',
-                            style: theme.textTheme.labelLarge?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
-                      // Блок коментарів
-                      Container(
-                        key: _commentsSectionKey,
-                        child: Text(
-                          'Коментарі',
-                          style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      if (article.comments.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 32.0),
-                          child: Center(
-                            child: Text(
-                              'Немає коментарів. Будьте першим!',
-                              style: TextStyle(color: theme.colorScheme.outline),
-                            ),
-                          ),
-                        )
-                      else
-                        ListView.separated(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: article.comments.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 16),
-                          itemBuilder: (context, index) => _buildCommentTile(article.comments[index], theme),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-              _buildCommentInput(theme),
-            ],
-          );
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) => Center(child: Text('Помилка: $error')),
-      ),
-    );
-  }
-
-  Widget _buildInteractionButton({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-    required bool isActive,
-    required Color activeColor,
-  }) {
-    final theme = Theme.of(context);
-    final displayColor = isActive ? activeColor : theme.colorScheme.onSurfaceVariant;
-    
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: BoxDecoration(
-          color: isActive 
-              ? activeColor.withValues(alpha: 0.1) 
-              : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(20),
-          border: isActive 
-              ? Border.all(color: activeColor.withValues(alpha: 0.3)) 
-              : Border.all(color: Colors.transparent),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, size: 22, color: displayColor),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: theme.textTheme.labelLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: displayColor,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCommentTile(NewsComment comment, ThemeData theme) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        CircleAvatar(
-          radius: 18,
-          backgroundColor: theme.colorScheme.primaryContainer,
-          backgroundImage: comment.author.avatarUrl != null 
-            ? NetworkImage(comment.author.avatarUrl!) 
-            : null,
-          child: comment.author.avatarUrl == null 
-            ? Text(
-                comment.author.firstName[0],
-                style: TextStyle(color: theme.colorScheme.onPrimaryContainer, fontWeight: FontWeight.bold),
-              )
-            : null,
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-                  borderRadius: const BorderRadius.only(
-                    topRight: Radius.circular(16),
-                    bottomLeft: Radius.circular(16),
-                    bottomRight: Radius.circular(16),
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '${comment.author.firstName} ${comment.author.lastName}',
-                      style: theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      comment.content,
-                      style: theme.textTheme.bodyMedium?.copyWith(height: 1.3),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 4),
-              Padding(
-                padding: const EdgeInsets.only(left: 4.0),
-                child: Text(
-                  DateFormat('dd MMM HH:mm').format(comment.createdAt.toLocal()),
-                  style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildCommentInput(ThemeData theme) {
-    return Container(
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, -5),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-          child: Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _commentController,
-                  maxLines: 3,
-                  minLines: 1,
-                  textInputAction: TextInputAction.send,
-                  onSubmitted: (_) => _submitComment(),
-                  decoration: InputDecoration(
-                    hintText: 'Написати коментар...',
-                    filled: true,
-                    fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(24),
-                      borderSide: BorderSide.none,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Container(
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.primary,
-                  shape: BoxShape.circle,
-                ),
-                child: IconButton(
-                  icon: _isSubmitting
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
-                        )
-                      : const Icon(Icons.send_rounded, color: Colors.white, size: 20),
-                  onPressed: _isSubmitting ? null : _submitComment,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-</file>
-
-<file path="lib/features/news/presentations/widgets/news_card.dart">
-import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
-import '../../data/models/news_models.dart';
-import 'tiptap_renderer.dart';
-
-class NewsCard extends StatelessWidget {
-  final NewsArticle article;
-  final VoidCallback onTap;
-  final VoidCallback onLike;
-  final VoidCallback onDislike;
-  final VoidCallback onCommentTap;
-
-  const NewsCard({
-    super.key,
-    required this.article,
-    required this.onTap,
-    required this.onLike,
-    required this.onDislike,
-    required this.onCommentTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    
-    return Card(
-      elevation: 2,
-      margin: const EdgeInsets.only(bottom: 16),
-      clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: InkWell(
-        onTap: onTap,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (article.imageUrl != null && article.imageUrl!.isNotEmpty)
-              AspectRatio(
-                aspectRatio: 16 / 9,
-                child: Image.network(
-                  article.imageUrl!,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => Container(
-                    color: theme.colorScheme.surfaceContainerHighest,
-                    child: const Icon(Icons.image_not_supported, size: 48, color: Colors.grey),
-                  ),
-                ),
-              ),
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      if (article.category != null)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.primaryContainer,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            article.category!.name,
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: theme.colorScheme.onPrimaryContainer,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        )
-                      else
-                        const SizedBox.shrink(),
-                      Text(
-                        DateFormat('dd MMM yyyy, HH:mm').format(article.createdAt.toLocal()),
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    article.title,
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      height: 1.2,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 8),
-                  // Using TipTap extractor to display clean text
-                  Text(
-                    TipTapHelper.extractPlainText(article.content),
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 16),
-                  Divider(color: theme.colorScheme.outlineVariant),
-                  const SizedBox(height: 4),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          _buildActionButton(
-                            context: context,
-                            icon: article.votes.any((v) => v.voteType == 'UPVOTE') 
-                                ? Icons.thumb_up 
-                                : Icons.thumb_up_alt_outlined,
-                            label: '${article.upvotes > 0 ? article.upvotes : (article.count?.likes ?? 0)}',
-                            onTap: onLike,
-                            isActive: article.votes.any((v) => v.voteType == 'UPVOTE'),
-                            activeColor: Colors.green.shade600,
-                          ),
-                          const SizedBox(width: 16),
-                          _buildActionButton(
-                            context: context,
-                            icon: article.votes.any((v) => v.voteType == 'DOWNVOTE') 
-                                ? Icons.thumb_down 
-                                : Icons.thumb_down_alt_outlined,
-                            label: '${article.downvotes > 0 ? article.downvotes : (article.count?.dislikes ?? 0)}',
-                            onTap: onDislike,
-                            isActive: article.votes.any((v) => v.voteType == 'DOWNVOTE'),
-                            activeColor: Colors.red.shade600,
-                          ),
-                        ],
-                      ),
-                      _buildActionButton(
-                        context: context,
-                        icon: Icons.comment_outlined,
-                        label: '${article.count?.comments ?? 0}',
-                        onTap: onCommentTap,
-                        isActive: false,
-                        activeColor: theme.colorScheme.primary,
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildActionButton({
-    required BuildContext context,
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-    required bool isActive,
-    required Color activeColor,
-  }) {
-    final theme = Theme.of(context);
-    final displayColor = isActive ? activeColor : theme.colorScheme.onSurfaceVariant;
-    
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-        decoration: BoxDecoration(
-          color: isActive 
-              ? activeColor.withValues(alpha: 0.1) 
-              : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-          borderRadius: BorderRadius.circular(20),
-          border: isActive 
-              ? Border.all(color: activeColor.withValues(alpha: 0.3)) 
-              : Border.all(color: Colors.transparent),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              icon, 
-              size: 20, 
-              color: displayColor,
-            ),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: theme.textTheme.labelLarge?.copyWith(
-                color: displayColor,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-</file>
-
-<file path="lib/features/news/presentations/widgets/tiptap_renderer.dart">
-import 'dart:convert';
-import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
-
-class TipTapHelper {
-  /// Витягує чистий текст з JSON TipTap для прев'ю на картках
-  static String extractPlainText(String payload) {
-    try {
-      final doc = jsonDecode(payload);
-      if (doc is Map<String, dynamic> && doc['type'] == 'doc') {
-        return _extractText(doc['content'] as List?);
-      }
-      return payload;
-    } catch (e) {
-      // Якщо це не JSON (наприклад, звичайний текст), прибираємо HTML теги про всяк випадок
-      return payload.replaceAll(RegExp(r'<[^>]*>|&[^;]+;'), ' ');
-    }
-  }
-
-  static String _extractText(List? nodes) {
-    if (nodes == null) return '';
-    final buffer = StringBuffer();
-    for (final node in nodes) {
-      if (node['type'] == 'text') {
-        buffer.write(node['text']);
-      } else if (node['content'] != null) {
-        buffer.write(_extractText(node['content']));
-      }
-      if (node['type'] == 'paragraph' || node['type'] == 'listItem') {
-        buffer.write(' ');
-      }
-    }
-    return buffer.toString().trim();
-  }
-}
-
-class TipTapRenderer extends StatelessWidget {
-  final String jsonContent;
-  final String baseUrl;
-
-  const TipTapRenderer({
-    super.key,
-    required this.jsonContent,
-    this.baseUrl = 'http://10.0.2.2:3000', // Змініть на свій baseUrl
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    try {
-      final doc = jsonDecode(jsonContent);
-      if (doc is! Map<String, dynamic> || doc['type'] != 'doc') {
-        return Text(jsonContent); // Fallback
-      }
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: _buildNodes(doc['content'] as List?, context),
-      );
-    } catch (e) {
-      return Text(jsonContent); // Fallback якщо формат некоректний
-    }
-  }
-
-  List<Widget> _buildNodes(List? nodes, BuildContext context) {
-    if (nodes == null) return [];
-    return nodes.map((node) => _buildNode(node, context)).toList();
-  }
-
-  Widget _buildNode(Map<String, dynamic> node, BuildContext context) {
-    final type = node['type'];
-    final attrs = node['attrs'] as Map<String, dynamic>?;
-    final content = node['content'] as List?;
-
-    switch (type) {
-      case 'paragraph':
-        return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6.0),
-          child: RichText(
-            textAlign: _getTextAlign(attrs?['textAlign']),
-            text: TextSpan(
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.5),
-              children: _buildTextSpans(content, context),
-            ),
-          ),
-        );
-        
-      case 'blockquote':
-        return Container(
-          margin: const EdgeInsets.symmetric(vertical: 12.0),
-          padding: const EdgeInsets.only(left: 16.0, top: 4, bottom: 4),
-          decoration: BoxDecoration(
-            border: Border(
-              left: BorderSide(
-                color: Theme.of(context).colorScheme.primary, 
-                width: 4,
-              ),
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: _buildNodes(content, context),
-          ),
-        );
-        
-      case 'orderedList':
-        final start = attrs?['start'] ?? 1;
-        return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 8.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: List.generate(content?.length ?? 0, (i) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 8.0),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '${start + i}. ', 
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold),
-                    ),
-                    Expanded(child: _buildNode(content![i], context)),
-                  ],
-                ),
-              );
-            }),
-          ),
-        );
-        
-      case 'listItem':
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: _buildNodes(content, context),
-        );
-        
-      case 'image':
-        final src = attrs?['src'] as String?;
-        if (src == null) return const SizedBox();
-        // Додаємо baseUrl якщо посилання відносне
-        final imageUrl = src.startsWith('http') ? src : '$baseUrl$src';
-        return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16.0),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: Image.network(
-              imageUrl, 
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-            ),
-          ),
-        );
-        
-      case 'youtube':
-        final src = attrs?['src'] as String?;
-        if (src == null) return const SizedBox();
-        return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12.0),
-          child: InkWell(
-            onTap: () => launchUrl(Uri.parse(src), mode: LaunchMode.externalApplication),
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.errorContainer,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Theme.of(context).colorScheme.error.withValues(alpha: 0.3)),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.play_circle_fill, color: Theme.of(context).colorScheme.error, size: 36),
-                  const SizedBox(width: 12),
-                  Text(
-                    'Дивитись відео на YouTube', 
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error, 
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-        
-      default:
-        return const SizedBox();
-    }
-  }
-
-  List<TextSpan> _buildTextSpans(List? nodes, BuildContext context) {
-    if (nodes == null) return [];
-    List<TextSpan> spans = [];
-    
-    for (final node in nodes) {
-      if (node['type'] == 'text') {
-        final text = node['text'] as String? ?? '';
-        final marks = node['marks'] as List?;
-        
-        FontWeight weight = FontWeight.normal;
-        Color? color;
-        TextDecoration? decoration;
-        TapGestureRecognizer? recognizer;
-
-        if (marks != null) {
-          for (final mark in marks) {
-            if (mark['type'] == 'bold') {
-              weight = FontWeight.bold;
-            } else if (mark['type'] == 'link') {
-              color = Theme.of(context).colorScheme.primary;
-              decoration = TextDecoration.underline;
-              final href = mark['attrs']?['href'];
-              if (href != null) {
-                recognizer = TapGestureRecognizer()
-                  ..onTap = () => launchUrl(Uri.parse(href), mode: LaunchMode.externalApplication);
-              }
-            }
-          }
-        }
-
-        spans.add(TextSpan(
-          text: text,
-          style: TextStyle(fontWeight: weight, color: color, decoration: decoration),
-          recognizer: recognizer,
-        ));
-      }
-    }
-    return spans;
-  }
-
-  TextAlign _getTextAlign(String? align) {
-    switch (align) {
-      case 'center': return TextAlign.center;
-      case 'right': return TextAlign.right;
-      case 'justify': return TextAlign.justify;
-      default: return TextAlign.left;
-    }
-  }
-}
-</file>
-
 <file path="lib/features/polls/presentation/providers/poll_provider.dart">
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/models/poll_model.dart';
@@ -3442,6 +2659,423 @@ final newsListProvider = AsyncNotifierProvider<NewsListNotifier, List<NewsArticl
 );
 </file>
 
+<file path="lib/features/news/presentations/screens/news_detail_screen.dart">
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
+import '../providers/news_providers.dart';
+import '../widgets/tiptap_renderer.dart';
+import '../../data/models/news_models.dart';
+import '../../../../core/presentation/widgets/auth_network_image.dart';
+
+class NewsDetailScreen extends ConsumerStatefulWidget {
+  final String newsId;
+  final bool scrollToComments;
+
+  const NewsDetailScreen({
+    super.key, 
+    required this.newsId,
+    this.scrollToComments = false,
+  });
+
+  @override
+  ConsumerState<NewsDetailScreen> createState() => _NewsDetailScreenState();
+}
+
+class _NewsDetailScreenState extends ConsumerState<NewsDetailScreen> {
+  final TextEditingController _commentController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+  final GlobalKey _commentsSectionKey = GlobalKey();
+  
+  bool _hasScrolled = false;
+  bool _isSubmitting = false;
+
+  @override
+  void dispose() {
+    _commentController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submitComment() async {
+    final text = _commentController.text.trim();
+    if (text.isEmpty) return;
+
+    setState(() => _isSubmitting = true);
+    try {
+      await ref.read(newsInteractionProvider).addComment(widget.newsId, text);
+      _commentController.clear();
+      FocusScope.of(context).unfocus();
+      
+      // Скрол до кінця після додавання коментаря
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (_scrollController.hasClients) {
+          _scrollController.animateTo(
+            _scrollController.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          );
+        }
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final newsState = ref.watch(newsDetailProvider(widget.newsId));
+    final theme = Theme.of(context);
+
+    return Scaffold(
+      backgroundColor: theme.colorScheme.surface,
+      appBar: AppBar(
+        title: const Text('Новина'),
+      ),
+      body: newsState.when(
+        data: (article) {
+          // Автоскрол до коментарів при переході
+          if (widget.scrollToComments && !_hasScrolled) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (_commentsSectionKey.currentContext != null) {
+                Scrollable.ensureVisible(
+                  _commentsSectionKey.currentContext!,
+                  duration: const Duration(milliseconds: 500),
+                  curve: Curves.easeInOut,
+                );
+                _hasScrolled = true;
+              }
+            });
+          }
+
+          return Column(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Категорія та Дата (без автора)
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          if (article.category != null)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.primaryContainer,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                article.category!.name,
+                                style: theme.textTheme.labelMedium?.copyWith(
+                                  color: theme.colorScheme.onPrimaryContainer,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            )
+                          else
+                            const SizedBox.shrink(),
+                          Text(
+                            DateFormat('dd MMMM yyyy, HH:mm').format(article.createdAt.toLocal()),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        article.title,
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          height: 1.3,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      if (article.imageUrl != null && article.imageUrl!.isNotEmpty) ...[
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: AuthNetworkImage(
+                            imageUrl: article.imageUrl!,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                      ],
+                      // Рендерер JSON від TipTap
+                      TipTapRenderer(jsonContent: article.content),
+                      
+                      const SizedBox(height: 32),
+                      const Divider(),
+                      const SizedBox(height: 8),
+                      // Панель дій (Лайки / Дизлайки)
+                      Row(
+                        children: [
+                          _buildInteractionButton(
+                            icon: article.votes.any((v) => v.voteType == 'UPVOTE') 
+                                ? Icons.thumb_up 
+                                : Icons.thumb_up_alt_outlined,
+                            label: '${article.upvotes > 0 ? article.upvotes : (article.count?.likes ?? 0)}',
+                            isActive: article.votes.any((v) => v.voteType == 'UPVOTE'),
+                            activeColor: Colors.green.shade600,
+                            onTap: () async {
+                              try {
+                                await ref.read(newsInteractionProvider).vote(article.id, 'UPVOTE');
+                              } catch (e) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: Colors.red));
+                                }
+                              }
+                            },
+                          ),
+                          const SizedBox(width: 16),
+                          _buildInteractionButton(
+                            icon: article.votes.any((v) => v.voteType == 'DOWNVOTE') 
+                                ? Icons.thumb_down 
+                                : Icons.thumb_down_alt_outlined,
+                            label: '${article.downvotes > 0 ? article.downvotes : (article.count?.dislikes ?? 0)}',
+                            isActive: article.votes.any((v) => v.voteType == 'DOWNVOTE'),
+                            activeColor: Colors.red.shade600,
+                            onTap: () async {
+                              try {
+                                await ref.read(newsInteractionProvider).vote(article.id, 'DOWNVOTE');
+                              } catch (e) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: Colors.red));
+                                }
+                              }
+                            },
+                          ),
+                          const Spacer(),
+                          Icon(Icons.comment_outlined, size: 20, color: theme.colorScheme.outline),
+                          const SizedBox(width: 8),
+                          Text(
+                            '${article.count?.comments ?? 0}',
+                            style: theme.textTheme.labelLarge?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+                      // Блок коментарів
+                      Container(
+                        key: _commentsSectionKey,
+                        child: Text(
+                          'Коментарі',
+                          style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      if (article.comments.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 32.0),
+                          child: Center(
+                            child: Text(
+                              'Немає коментарів. Будьте першим!',
+                              style: TextStyle(color: theme.colorScheme.outline),
+                            ),
+                          ),
+                        )
+                      else
+                        ListView.separated(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: article.comments.length,
+                          separatorBuilder: (_, __) => const SizedBox(height: 16),
+                          itemBuilder: (context, index) => _buildCommentTile(article.comments[index], theme),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+              _buildCommentInput(theme),
+            ],
+          );
+        },
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (error, stack) => Center(child: Text('Помилка: $error')),
+      ),
+    );
+  }
+
+  Widget _buildInteractionButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    required bool isActive,
+    required Color activeColor,
+  }) {
+    final theme = Theme.of(context);
+    final displayColor = isActive ? activeColor : theme.colorScheme.onSurfaceVariant;
+    
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: isActive 
+              ? activeColor.withValues(alpha: 0.1) 
+              : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(20),
+          border: isActive 
+              ? Border.all(color: activeColor.withValues(alpha: 0.3)) 
+              : Border.all(color: Colors.transparent),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 22, color: displayColor),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: theme.textTheme.labelLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: displayColor,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCommentTile(NewsComment comment, ThemeData theme) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        CircleAvatar(
+          radius: 18,
+          backgroundColor: theme.colorScheme.primaryContainer,
+          backgroundImage: comment.author.avatarUrl != null 
+            ? NetworkImage(comment.author.avatarUrl!) 
+            : null,
+          child: comment.author.avatarUrl == null 
+            ? Text(
+                comment.author.firstName[0],
+                style: TextStyle(color: theme.colorScheme.onPrimaryContainer, fontWeight: FontWeight.bold),
+              )
+            : null,
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+                  borderRadius: const BorderRadius.only(
+                    topRight: Radius.circular(16),
+                    bottomLeft: Radius.circular(16),
+                    bottomRight: Radius.circular(16),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${comment.author.firstName} ${comment.author.lastName}',
+                      style: theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      comment.content,
+                      style: theme.textTheme.bodyMedium?.copyWith(height: 1.3),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 4),
+              Padding(
+                padding: const EdgeInsets.only(left: 4.0),
+                child: Text(
+                  DateFormat('dd MMM HH:mm').format(comment.createdAt.toLocal()),
+                  style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCommentInput(ThemeData theme) {
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, -5),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _commentController,
+                  maxLines: 3,
+                  minLines: 1,
+                  textInputAction: TextInputAction.send,
+                  onSubmitted: (_) => _submitComment(),
+                  decoration: InputDecoration(
+                    hintText: 'Написати коментар...',
+                    filled: true,
+                    fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(24),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Container(
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary,
+                  shape: BoxShape.circle,
+                ),
+                child: IconButton(
+                  icon: _isSubmitting
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+                        )
+                      : const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+                  onPressed: _isSubmitting ? null : _submitComment,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+</file>
+
 <file path="lib/features/news/presentations/screens/news_screen.dart">
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -3670,6 +3304,446 @@ class _NewsScreenState extends ConsumerState<NewsScreen> {
         ),
       ),
     );
+  }
+}
+</file>
+
+<file path="lib/features/news/presentations/widgets/news_card.dart">
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import '../../data/models/news_models.dart';
+import 'tiptap_renderer.dart';
+import '../../../../core/presentation/widgets/auth_network_image.dart';
+
+class NewsCard extends StatelessWidget {
+  final NewsArticle article;
+  final VoidCallback onTap;
+  final VoidCallback onLike;
+  final VoidCallback onDislike;
+  final VoidCallback onCommentTap;
+
+  const NewsCard({
+    super.key,
+    required this.article,
+    required this.onTap,
+    required this.onLike,
+    required this.onDislike,
+    required this.onCommentTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    
+    return Card(
+      elevation: 2,
+      margin: const EdgeInsets.only(bottom: 16),
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (article.imageUrl != null && article.imageUrl!.isNotEmpty)
+              AspectRatio(
+                aspectRatio: 16 / 9,
+                child: AuthNetworkImage(
+                  imageUrl: article.imageUrl!,
+                  fit: BoxFit.cover,
+                ),
+              ),
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      if (article.category != null)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.primaryContainer,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            article.category!.name,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: theme.colorScheme.onPrimaryContainer,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        )
+                      else
+                        const SizedBox.shrink(),
+                      Text(
+                        DateFormat('dd MMM yyyy, HH:mm').format(article.createdAt.toLocal()),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    article.title,
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      height: 1.2,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 8),
+                  // Using TipTap extractor to display clean text
+                  Text(
+                    TipTapHelper.extractPlainText(article.content),
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 16),
+                  Divider(color: theme.colorScheme.outlineVariant),
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          _buildActionButton(
+                            context: context,
+                            icon: article.votes.any((v) => v.voteType == 'UPVOTE') 
+                                ? Icons.thumb_up 
+                                : Icons.thumb_up_alt_outlined,
+                            label: '${article.upvotes > 0 ? article.upvotes : (article.count?.likes ?? 0)}',
+                            onTap: onLike,
+                            isActive: article.votes.any((v) => v.voteType == 'UPVOTE'),
+                            activeColor: Colors.green.shade600,
+                          ),
+                          const SizedBox(width: 16),
+                          _buildActionButton(
+                            context: context,
+                            icon: article.votes.any((v) => v.voteType == 'DOWNVOTE') 
+                                ? Icons.thumb_down 
+                                : Icons.thumb_down_alt_outlined,
+                            label: '${article.downvotes > 0 ? article.downvotes : (article.count?.dislikes ?? 0)}',
+                            onTap: onDislike,
+                            isActive: article.votes.any((v) => v.voteType == 'DOWNVOTE'),
+                            activeColor: Colors.red.shade600,
+                          ),
+                        ],
+                      ),
+                      _buildActionButton(
+                        context: context,
+                        icon: Icons.comment_outlined,
+                        label: '${article.count?.comments ?? 0}',
+                        onTap: onCommentTap,
+                        isActive: false,
+                        activeColor: theme.colorScheme.primary,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionButton({
+    required BuildContext context,
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    required bool isActive,
+    required Color activeColor,
+  }) {
+    final theme = Theme.of(context);
+    final displayColor = isActive ? activeColor : theme.colorScheme.onSurfaceVariant;
+    
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+        decoration: BoxDecoration(
+          color: isActive 
+              ? activeColor.withValues(alpha: 0.1) 
+              : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+          borderRadius: BorderRadius.circular(20),
+          border: isActive 
+              ? Border.all(color: activeColor.withValues(alpha: 0.3)) 
+              : Border.all(color: Colors.transparent),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              icon, 
+              size: 20, 
+              color: displayColor,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: displayColor,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+</file>
+
+<file path="lib/features/news/presentations/widgets/tiptap_renderer.dart">
+import 'dart:convert';
+import 'package:flutter/gestures.dart';
+import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../../../../core/presentation/widgets/auth_network_image.dart';
+
+class TipTapHelper {
+  /// Витягує чистий текст з JSON TipTap для прев'ю на картках
+  static String extractPlainText(String payload) {
+    try {
+      final doc = jsonDecode(payload);
+      if (doc is Map<String, dynamic> && doc['type'] == 'doc') {
+        return _extractText(doc['content'] as List?);
+      }
+      return payload;
+    } catch (e) {
+      // Якщо це не JSON (наприклад, звичайний текст), прибираємо HTML теги про всяк випадок
+      return payload.replaceAll(RegExp(r'<[^>]*>|&[^;]+;'), ' ');
+    }
+  }
+
+  static String _extractText(List? nodes) {
+    if (nodes == null) return '';
+    final buffer = StringBuffer();
+    for (final node in nodes) {
+      if (node['type'] == 'text') {
+        buffer.write(node['text']);
+      } else if (node['content'] != null) {
+        buffer.write(_extractText(node['content']));
+      }
+      if (node['type'] == 'paragraph' || node['type'] == 'listItem') {
+        buffer.write(' ');
+      }
+    }
+    return buffer.toString().trim();
+  }
+}
+
+class TipTapRenderer extends StatelessWidget {
+  final String jsonContent;
+  final String baseUrl;
+
+  const TipTapRenderer({
+    super.key,
+    required this.jsonContent,
+    this.baseUrl = 'http://10.0.2.2:3000', // Змініть на свій baseUrl
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    try {
+      final doc = jsonDecode(jsonContent);
+      if (doc is! Map<String, dynamic> || doc['type'] != 'doc') {
+        return Text(jsonContent); // Fallback
+      }
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: _buildNodes(doc['content'] as List?, context),
+      );
+    } catch (e) {
+      return Text(jsonContent); // Fallback якщо формат некоректний
+    }
+  }
+
+  List<Widget> _buildNodes(List? nodes, BuildContext context) {
+    if (nodes == null) return [];
+    return nodes.map((node) => _buildNode(node, context)).toList();
+  }
+
+  Widget _buildNode(Map<String, dynamic> node, BuildContext context) {
+    final type = node['type'];
+    final attrs = node['attrs'] as Map<String, dynamic>?;
+    final content = node['content'] as List?;
+
+    switch (type) {
+      case 'paragraph':
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6.0),
+          child: RichText(
+            textAlign: _getTextAlign(attrs?['textAlign']),
+            text: TextSpan(
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.5),
+              children: _buildTextSpans(content, context),
+            ),
+          ),
+        );
+        
+      case 'blockquote':
+        return Container(
+          margin: const EdgeInsets.symmetric(vertical: 12.0),
+          padding: const EdgeInsets.only(left: 16.0, top: 4, bottom: 4),
+          decoration: BoxDecoration(
+            border: Border(
+              left: BorderSide(
+                color: Theme.of(context).colorScheme.primary, 
+                width: 4,
+              ),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: _buildNodes(content, context),
+          ),
+        );
+        
+      case 'orderedList':
+        final start = attrs?['start'] ?? 1;
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 8.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: List.generate(content?.length ?? 0, (i) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8.0),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${start + i}. ', 
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                    Expanded(child: _buildNode(content![i], context)),
+                  ],
+                ),
+              );
+            }),
+          ),
+        );
+        
+      case 'listItem':
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: _buildNodes(content, context),
+        );
+        
+      case 'image':
+        final src = attrs?['src'] as String?;
+        if (src == null) return const SizedBox();
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16.0),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: AuthNetworkImage(
+              imageUrl: src,
+              baseUrl: baseUrl,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+            ),
+          ),
+        );
+        
+      case 'youtube':
+        final src = attrs?['src'] as String?;
+        if (src == null) return const SizedBox();
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12.0),
+          child: InkWell(
+            onTap: () => launchUrl(Uri.parse(src), mode: LaunchMode.externalApplication),
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.errorContainer,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Theme.of(context).colorScheme.error.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.play_circle_fill, color: Theme.of(context).colorScheme.error, size: 36),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Дивитись відео на YouTube', 
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error, 
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+        
+      default:
+        return const SizedBox();
+    }
+  }
+
+  List<TextSpan> _buildTextSpans(List? nodes, BuildContext context) {
+    if (nodes == null) return [];
+    List<TextSpan> spans = [];
+    
+    for (final node in nodes) {
+      if (node['type'] == 'text') {
+        final text = node['text'] as String? ?? '';
+        final marks = node['marks'] as List?;
+        
+        FontWeight weight = FontWeight.normal;
+        Color? color;
+        TextDecoration? decoration;
+        TapGestureRecognizer? recognizer;
+
+        if (marks != null) {
+          for (final mark in marks) {
+            if (mark['type'] == 'bold') {
+              weight = FontWeight.bold;
+            } else if (mark['type'] == 'link') {
+              color = Theme.of(context).colorScheme.primary;
+              decoration = TextDecoration.underline;
+              final href = mark['attrs']?['href'];
+              if (href != null) {
+                recognizer = TapGestureRecognizer()
+                  ..onTap = () => launchUrl(Uri.parse(href), mode: LaunchMode.externalApplication);
+              }
+            }
+          }
+        }
+
+        spans.add(TextSpan(
+          text: text,
+          style: TextStyle(fontWeight: weight, color: color, decoration: decoration),
+          recognizer: recognizer,
+        ));
+      }
+    }
+    return spans;
+  }
+
+  TextAlign _getTextAlign(String? align) {
+    switch (align) {
+      case 'center': return TextAlign.center;
+      case 'right': return TextAlign.right;
+      case 'justify': return TextAlign.justify;
+      default: return TextAlign.left;
+    }
   }
 }
 </file>
