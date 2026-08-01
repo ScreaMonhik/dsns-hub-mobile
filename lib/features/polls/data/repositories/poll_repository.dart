@@ -1,14 +1,12 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/network/dio_provider.dart'; // Переконайтеся, що шлях до вашого dioProvider правильний
 import '../models/poll_model.dart';
 
-// TODO: Replace with the actual import path to your configured Dio provider
-// import '../../../../core/providers/dio_provider.dart';
-
 final pollRepositoryProvider = Provider<PollRepository>((ref) {
-  // final dio = ref.watch(dioProvider); 
-  // Using a raw Dio instance as a placeholder until you connect your injected Dio.
-  return PollRepository(Dio());
+  // Відстежуємо налаштований екземпляр Dio з авторизаційними інтерцепторами
+  final dio = ref.watch(dioProvider); 
+  return PollRepository(dio);
 });
 
 class PollRepository {

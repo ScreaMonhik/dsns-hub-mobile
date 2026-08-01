@@ -1,25 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../features/auth/presentation/providers/auth_provider.dart';
+// Оновіть шлях імпорту до вашого auth_provider.dart, якщо він знаходиться в іншій папці
+import '../../features/auth/providers/auth_provider.dart'; 
 import '../../features/home/presentation/home_shell_screen.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/polls/presentation/screens/polls_screen.dart';
 import '../../features/polls/presentation/screens/poll_detail_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authProvider);
+  final authState = ref.watch(authStateProvider);
 
   return GoRouter(
     initialLocation: '/news',
     redirect: (context, state) {
-      final isAuth = authState == AuthState.authenticated;
-      final isLoggingIn = state.matchedLocation == '/login';
-      final isInitial = authState == AuthState.initial;
+      if (authState is AsyncLoading) return null; 
 
-      if (isInitial) return null; // Wait for secure storage check
-      if (!isAuth && !isLoggingIn) return '/login';
-      if (isAuth && isLoggingIn) return '/news';
+      final isAuthenticated = authState.valueOrNull ?? false;
+      final isLoggingIn = state.matchedLocation == '/login';
+
+      if (!isAuthenticated && !isLoggingIn) return '/login';
+      if (isAuthenticated && isLoggingIn) return '/news';
       
       return null;
     },
