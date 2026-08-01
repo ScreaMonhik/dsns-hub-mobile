@@ -12,11 +12,14 @@ class PollsScreen extends ConsumerStatefulWidget {
   ConsumerState<PollsScreen> createState() => _PollsScreenState();
 }
 
+enum PollFilter { all, active, unvoted, voted, closed }
+
 class _PollsScreenState extends ConsumerState<PollsScreen> {
+  PollFilter _currentFilter = PollFilter.active;
+
   @override
   void initState() {
     super.initState();
-    // Fetch polls only if not already loaded to preserve state during tab switching
     Future.microtask(() {
       if (ref.read(pollsProvider).value == null) {
         ref.read(pollsProvider.notifier).fetchPolls();
@@ -29,41 +32,167 @@ class _PollsScreenState extends ConsumerState<PollsScreen> {
     final pollsState = ref.watch(pollsProvider);
 
     return Scaffold(
+      backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
         title: const Text('Опитування', style: TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: true,
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
       ),
-      body: pollsState.when(
-        data: (polls) {
-          final visiblePolls = polls.where((p) => p.status != 'DRAFT').toList();
-          
-          if (visiblePolls.isEmpty) {
-            return const Center(child: Text('Немає активних опитувань', style: TextStyle(color: Colors.grey)));
-          }
-          return RefreshIndicator(
-            onRefresh: () => ref.read(pollsProvider.notifier).fetchPolls(),
-            child: ListView.separated(
-              padding: const EdgeInsets.all(16),
-              itemCount: visiblePolls.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 12),
-              itemBuilder: (context, index) => _PollCard(poll: visiblePolls[index]),
+      body: Column(
+        children: [
+          _buildFilterBar(),
+          Expanded(
+            child: pollsState.when(
+              data: (polls) {
+                final filteredPolls = polls.where((p) {
+                  if (p.status == 'DRAFT') return false;
+
+                  final isLocallyExpired = p.expiresAt != null && p.expiresAt!.isBefore(DateTime.now());
+                  final isClosed = p.status != 'PUBLISHED' || isLocallyExpired;
+                  final isVoted = p.userVotedOptionId != null;
+
+                  switch (_currentFilter) {
+                    case PollFilter.all:
+                      return true;
+                    case PollFilter.active:
+                      return !isClosed;
+                    case PollFilter.unvoted:
+                      return !isClosed && !isVoted;
+                    case PollFilter.voted:
+                      return isVoted;
+                    case PollFilter.closed:
+                      return isClosed;
+                  }
+                }).toList();
+
+                // Розумне сортування
+                filteredPolls.sort((a, b) {
+                  final aExpired = a.expiresAt != null && a.expiresAt!.isBefore(DateTime.now());
+                  final aClosed = a.status != 'PUBLISHED' || aExpired;
+                  
+                  final bExpired = b.expiresAt != null && b.expiresAt!.isBefore(DateTime.now());
+                  final bClosed = b.status != 'PUBLISHED' || bExpired;
+
+                  // 1. Активні завжди вище закритих
+                  if (aClosed != bClosed) return aClosed ? 1 : -1;
+
+                  final aVoted = a.userVotedOptionId != null;
+                  final bVoted = b.userVotedOptionId != null;
+
+                  // 2. Непройдені завжди вище пройдених (серед активних)
+                  if (aVoted != bVoted) return aVoted ? 1 : -1;
+
+                  // 3. За датою створення (найновіші зверху)
+                  return b.createdAt.compareTo(a.createdAt);
+                });
+
+                if (filteredPolls.isEmpty) {
+                  return _buildEmptyState();
+                }
+
+                return RefreshIndicator(
+                  onRefresh: () => ref.read(pollsProvider.notifier).fetchPolls(),
+                  child: ListView.separated(
+                    padding: const EdgeInsets.only(top: 8, left: 16, right: 16, bottom: 24),
+                    itemCount: filteredPolls.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    itemBuilder: (context, index) => _PollCard(poll: filteredPolls[index]),
+                  ),
+                );
+              },
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, _) => Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text('Помилка: $error', textAlign: TextAlign.center),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: () => ref.read(pollsProvider.notifier).fetchPolls(),
+                      child: const Text('Оновити'),
+                    )
+                  ],
+                ),
+              ),
             ),
-          );
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text('Помилка: $error', textAlign: TextAlign.center),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () => ref.read(pollsProvider.notifier).fetchPolls(),
-                child: const Text('Оновити'),
-              )
-            ],
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterBar() {
+    return Container(
+      width: double.infinity,
+      color: Colors.white,
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Row(
+          children: PollFilter.values.map((filter) {
+            final isSelected = _currentFilter == filter;
+            return Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: ChoiceChip(
+                label: Text(_getFilterName(filter)),
+                selected: isSelected,
+                onSelected: (selected) {
+                  if (selected) setState(() => _currentFilter = filter);
+                },
+                selectedColor: Colors.blue.shade600,
+                labelStyle: TextStyle(
+                  color: isSelected ? Colors.white : Colors.grey.shade700,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                ),
+                backgroundColor: Colors.grey.shade100,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  side: BorderSide(
+                    color: isSelected ? Colors.blue.shade600 : Colors.grey.shade200,
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
         ),
+      ),
+    );
+  }
+
+  String _getFilterName(PollFilter filter) {
+    switch (filter) {
+      case PollFilter.all: return 'Усі';
+      case PollFilter.active: return 'Активні';
+      case PollFilter.unvoted: return 'Не пройдені';
+      case PollFilter.voted: return 'Пройдені';
+      case PollFilter.closed: return 'Завершені';
+    }
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.poll_outlined, size: 64, color: Colors.grey.shade300),
+          const SizedBox(height: 16),
+          Text(
+            'Немає опитувань',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey.shade600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'За обраним фільтром нічого не знайдено',
+            style: TextStyle(color: Colors.grey.shade500),
+          ),
+        ],
       ),
     );
   }
@@ -85,7 +214,7 @@ class _PollCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 16,
             offset: const Offset(0, 4),
           ),

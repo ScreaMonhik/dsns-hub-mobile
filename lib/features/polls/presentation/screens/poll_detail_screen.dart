@@ -149,12 +149,15 @@ class _PollDetailScreenState extends ConsumerState<PollDetailScreen> {
               ),
             ],
             const SizedBox(height: 32),
-            const Text(
-              'Оберіть варіант:',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+            Text(
+              isClosed ? 'Результати опитування:' : 'Оберіть варіант:',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 16),
-            ...poll.options.map((option) => _buildOptionCard(poll, option, isVotingActive)),
+            ...poll.options.map((option) {
+              final maxVotes = poll.options.isEmpty ? 0 : poll.options.map((o) => o.votes).reduce((a, b) => a > b ? a : b);
+              return _buildOptionCard(poll, option, isVotingActive, isClosed, maxVotes);
+            }),
             const SizedBox(height: 32),
             Center(
               child: Container(
@@ -184,7 +187,7 @@ class _PollDetailScreenState extends ConsumerState<PollDetailScreen> {
         color: Theme.of(context).scaffoldBackgroundColor,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, -5),
           )
@@ -253,33 +256,44 @@ class _PollDetailScreenState extends ConsumerState<PollDetailScreen> {
     );
   }
 
-  Widget _buildOptionCard(Poll poll, PollOption option, bool isVotingActive) {
+  Widget _buildOptionCard(Poll poll, PollOption option, bool isVotingActive, bool isClosed, int maxVotes) {
     final isSelected = isVotingActive 
         ? _pendingOptionId == option.id 
         : poll.userVotedOptionId == option.id;
         
     final double percentage = poll.totalVotes > 0 ? (option.votes / poll.totalVotes) : 0.0;
     final String percentageText = '${(percentage * 100).toStringAsFixed(1)}%';
+    
+    final isWinner = isClosed && option.votes == maxVotes && maxVotes > 0;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border.all(
-          color: isSelected ? Colors.blue.shade600 : Colors.grey.shade300,
-          width: isSelected ? 2 : 1,
-        ),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
-          if (isSelected)
+          if (isWinner)
             BoxShadow(
-              color: Colors.blue.shade100.withOpacity(0.5),
+              color: Colors.green.shade100.withValues(alpha: 0.5),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            )
+          else if (isSelected)
+            BoxShadow(
+              color: Colors.blue.shade100.withValues(alpha: 0.5),
               blurRadius: 8,
               offset: const Offset(0, 4),
             )
         ],
       ),
-      clipBehavior: Clip.hardEdge,
+      foregroundDecoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isWinner ? Colors.green.shade500 : (isSelected ? Colors.blue.shade600 : Colors.grey.shade300),
+          width: (isWinner || isSelected) ? 2 : 1,
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
       child: Material(
         color: Colors.transparent,
         child: InkWell(
@@ -288,7 +302,6 @@ class _PollDetailScreenState extends ConsumerState<PollDetailScreen> {
               : null,
           child: Stack(
             children: [
-              // Анімований фон з відсотками
               Positioned.fill(
                 child: FractionallySizedBox(
                   alignment: Alignment.centerLeft,
@@ -296,47 +309,59 @@ class _PollDetailScreenState extends ConsumerState<PollDetailScreen> {
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 600),
                     curve: Curves.easeOutCubic,
-                    color: isSelected ? Colors.blue.shade50 : Colors.grey.shade100,
+                    color: isWinner ? Colors.green.shade50 : (isSelected ? Colors.blue.shade50 : Colors.grey.shade100),
                   ),
                 ),
               ),
-              // Контент картки
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 18.0),
                 child: Row(
                   children: [
-                    Icon(
-                      isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
-                      color: isSelected ? Colors.blue.shade600 : Colors.grey.shade400,
-                    ),
-                    const SizedBox(width: 16),
+                    if (!isClosed) ...[
+                      Icon(
+                        isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                        color: isSelected ? Colors.blue.shade600 : Colors.grey.shade400,
+                      ),
+                      const SizedBox(width: 16),
+                    ],
                     Expanded(
                       child: Text(
                         option.text,
                         style: TextStyle(
                           fontSize: 16,
-                          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                          fontWeight: (isWinner || isSelected) ? FontWeight.w700 : FontWeight.w500,
                           color: Colors.black87,
                         ),
                       ),
                     ),
                     const SizedBox(width: 12),
-                    // Приховуємо результати, поки людина не проголосувала остаточно
-                    if (!isVotingActive || poll.userVotedOptionId != null) 
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
+                    if (!isVotingActive || poll.userVotedOptionId != null || isClosed) 
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(
-                            percentageText,
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                              color: isSelected ? Colors.blue.shade700 : Colors.black87,
-                            ),
-                          ),
-                          Text(
-                            '${option.votes} чол.',
-                            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                          if (isWinner) ...[
+                            Icon(Icons.emoji_events, color: Colors.green.shade600, size: 24),
+                            const SizedBox(width: 10),
+                          ] else if (isClosed && isSelected) ...[
+                            Icon(Icons.check_circle, color: Colors.blue.shade600, size: 20),
+                            const SizedBox(width: 10),
+                          ],
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                percentageText,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                  color: isWinner ? Colors.green.shade700 : (isSelected ? Colors.blue.shade700 : Colors.black87),
+                                ),
+                              ),
+                              Text(
+                                '${option.votes} чол.',
+                                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                              ),
+                            ],
                           ),
                         ],
                       ),

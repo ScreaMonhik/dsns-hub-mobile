@@ -14,8 +14,10 @@ class PollRepository {
 
   PollRepository(this._dio);
 
-  Future<List<Poll>> getPolls() async {
-    final response = await _dio.get('/polls');
+  Future<List<Poll>> getPolls({String? status}) async {
+    final queryParameters = status != null ? {'status': status} : null;
+    final response = await _dio.get('/polls', queryParameters: queryParameters);
+    
     final data = response.data['data'] as List;
     return data.map((json) => Poll.fromJson(json as Map<String, dynamic>)).toList();
   }

@@ -15,8 +15,21 @@ class PollsNotifier extends StateNotifier<AsyncValue<List<Poll>>> {
   Future<void> fetchPolls() async {
     try {
       state = const AsyncValue.loading();
-      final polls = await _repository.getPolls();
-      state = AsyncValue.data(polls);
+      
+      // Fetch both active (default) and archived polls concurrently
+      final results = await Future.wait([
+        _repository.getPolls(), // GET /polls?status=PUBLISHED (by default)
+        _repository.getPolls(status: 'ARCHIVED'), // GET /polls?status=ARCHIVED
+      ]);
+      
+      final activePolls = results[0];
+      final archivedPolls = results[1];
+      
+      // Combine and remove any potential duplicates by ID
+      final allPolls = [...activePolls, ...archivedPolls];
+      final uniquePolls = {for (var p in allPolls) p.id: p}.values.toList();
+      
+      state = AsyncValue.data(uniquePolls);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
     }
