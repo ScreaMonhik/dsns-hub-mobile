@@ -160,6 +160,20 @@ lib/
           login_screen.dart
       providers/
         auth_provider.dart
+    chats/
+      data/
+        models/
+          chat_models.dart
+        repositories/
+          chat_repository.dart
+        services/
+          chat_socket_service.dart
+      presentation/
+        providers/
+          chat_providers.dart
+        screens/
+          chat_detail_screen.dart
+          chats_screen.dart
     home/
       presentation/
         home_shell_screen.dart
@@ -2354,6 +2368,928 @@ class AuthNotifier extends StateNotifier<AsyncValue<bool>> {
 }
 </file>
 
+<file path="lib/features/chats/data/models/chat_models.dart">
+import 'package:freezed_annotation/freezed_annotation.dart';
+
+part 'chat_models.freezed.dart';
+part 'chat_models.g.dart';
+
+@freezed
+abstract class ChatDepartment with _$ChatDepartment {
+  const factory ChatDepartment({
+    required String id,
+    required String name,
+  }) = _ChatDepartment;
+
+  factory ChatDepartment.fromJson(Map<String, dynamic> json) => _$ChatDepartmentFromJson(json);
+}
+
+@freezed
+abstract class ChatMember with _$ChatMember {
+  const factory ChatMember({
+    required bool isPinned,
+    int? pinOrder,
+    required bool isAdmin,
+  }) = _ChatMember;
+
+  factory ChatMember.fromJson(Map<String, dynamic> json) => _$ChatMemberFromJson(json);
+}
+
+@freezed
+abstract class ChatCount with _$ChatCount {
+  const factory ChatCount({
+    @Default(0) int members,
+  }) = _ChatCount;
+
+  factory ChatCount.fromJson(Map<String, dynamic> json) => _$ChatCountFromJson(json);
+}
+
+@freezed
+abstract class ChatSender with _$ChatSender {
+  const factory ChatSender({
+    required String id,
+    required String firstName,
+    required String lastName,
+    String? avatarUrl,
+  }) = _ChatSender;
+
+  factory ChatSender.fromJson(Map<String, dynamic> json) => _$ChatSenderFromJson(json);
+}
+
+@freezed
+abstract class ChatReadReceipt with _$ChatReadReceipt {
+  const factory ChatReadReceipt({
+    required String userId,
+    required DateTime readAt,
+  }) = _ChatReadReceipt;
+
+  factory ChatReadReceipt.fromJson(Map<String, dynamic> json) => _$ChatReadReceiptFromJson(json);
+}
+
+@freezed
+abstract class ChatMessage with _$ChatMessage {
+  const factory ChatMessage({
+    required String id,
+    required String content,
+    required bool isDeleted,
+    required DateTime createdAt,
+    required DateTime updatedAt,
+    required String senderId,
+    required String groupId,
+    ChatSender? sender,
+    @Default([]) List<ChatReadReceipt> readReceipts,
+  }) = _ChatMessage;
+
+  factory ChatMessage.fromJson(Map<String, dynamic> json) => _$ChatMessageFromJson(json);
+}
+
+@freezed
+abstract class ChatGroup with _$ChatGroup {
+  const factory ChatGroup({
+    required String id,
+    required String name,
+    String? avatarUrl,
+    String? departmentId,
+    required DateTime createdAt,
+    @Default(0) int unreadCount,
+    ChatDepartment? department,
+    @Default([]) List<ChatMember> members,
+    @JsonKey(name: '_count') ChatCount? count,
+    @Default([]) List<ChatMessage> messages,
+  }) = _ChatGroup;
+
+  factory ChatGroup.fromJson(Map<String, dynamic> json) => _$ChatGroupFromJson(json);
+}
+
+@freezed
+abstract class ChatPaginationMeta with _$ChatPaginationMeta {
+  const factory ChatPaginationMeta({
+    required int total,
+    required int page,
+    required int lastPage,
+    required int limit,
+  }) = _ChatPaginationMeta;
+
+  factory ChatPaginationMeta.fromJson(Map<String, dynamic> json) => _$ChatPaginationMetaFromJson(json);
+}
+
+@freezed
+abstract class ChatHistoryResponse with _$ChatHistoryResponse {
+  const factory ChatHistoryResponse({
+    required List<ChatMessage> data,
+    required ChatPaginationMeta meta,
+  }) = _ChatHistoryResponse;
+
+  factory ChatHistoryResponse.fromJson(Map<String, dynamic> json) => _$ChatHistoryResponseFromJson(json);
+}
+</file>
+
+<file path="lib/features/chats/data/repositories/chat_repository.dart">
+import 'package:dio/dio.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/network/dio_provider.dart';
+import '../models/chat_models.dart';
+
+final chatRepositoryProvider = Provider<ChatRepository>((ref) {
+  return ChatRepository(ref.watch(dioProvider));
+});
+
+class ChatRepository {
+  final Dio _dio;
+
+  ChatRepository(this._dio);
+
+  Future<List<ChatGroup>> getGroups() async {
+    final response = await _dio.get('/chat/groups');
+    final data = response.data as List;
+    return data.map((json) => ChatGroup.fromJson(json as Map<String, dynamic>)).toList();
+  }
+
+  Future<ChatHistoryResponse> getMessages(String groupId, {int page = 1, int limit = 20}) async {
+    final response = await _dio.get(
+      '/chat/groups/$groupId/messages',
+      queryParameters: {
+        'page': page,
+        'limit': limit,
+      },
+    );
+    return ChatHistoryResponse.fromJson(response.data as Map<String, dynamic>);
+  }
+}
+</file>
+
+<file path="lib/features/chats/data/services/chat_socket_service.dart">
+import 'dart:async';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:socket_io_client/socket_io_client.dart' as IO;
+import '../../../../core/network/dio_provider.dart';
+import '../models/chat_models.dart';
+
+final chatSocketServiceProvider = Provider<ChatSocketService>((ref) {
+  final storage = ref.watch(secureStorageProvider);
+  final service = ChatSocketService(storage);
+  ref.onDispose(() => service.disconnect());
+  return service;
+});
+
+class ChatSocketService {
+  final FlutterSecureStorage _storage;
+  IO.Socket? _socket;
+
+  // Streams for real-time events
+  final _messageController = StreamController<ChatMessage>.broadcast();
+  final _messageUpdatedController = StreamController<ChatMessage>.broadcast();
+  final _messageDeletedController = StreamController<ChatMessage>.broadcast();
+  final _messagesReadController = StreamController<Map<String, dynamic>>.broadcast();
+
+  Stream<ChatMessage> get onNewMessage => _messageController.stream;
+  Stream<ChatMessage> get onMessageUpdated => _messageUpdatedController.stream;
+  Stream<ChatMessage> get onMessageDeleted => _messageDeletedController.stream;
+  Stream<Map<String, dynamic>> get onMessagesRead => _messagesReadController.stream;
+
+  ChatSocketService(this._storage);
+
+  Future<void> connect() async {
+    if (_socket != null && _socket!.connected) return;
+
+    final token = await _storage.read(key: 'jwt_token');
+    
+    _socket = IO.io(
+      'http://10.0.2.2:3000/chat',
+      IO.OptionBuilder()
+          .setTransports(['websocket'])
+          .setAuth({'token': token})
+          .disableAutoConnect()
+          .build(),
+    );
+
+    _socket!.connect();
+
+    _socket!.on('newMessage', (data) {
+      if (data != null) _messageController.add(ChatMessage.fromJson(data));
+    });
+
+    _socket!.on('messageUpdated', (data) {
+      if (data != null) _messageUpdatedController.add(ChatMessage.fromJson(data));
+    });
+
+    _socket!.on('messageDeleted', (data) {
+      if (data != null) _messageDeletedController.add(ChatMessage.fromJson(data));
+    });
+
+    _socket!.on('messagesRead', (data) {
+      if (data != null) _messagesReadController.add(Map<String, dynamic>.from(data));
+    });
+  }
+
+  void joinRoom(String groupId) {
+    _socket?.emit('joinRoom', {'groupId': groupId});
+  }
+
+  void sendMessage(String groupId, String content) {
+    _socket?.emit('sendMessage', {'groupId': groupId, 'content': content});
+  }
+
+  void editMessage(String messageId, String newContent) {
+    _socket?.emit('editMessage', {'messageId': messageId, 'newContent': newContent});
+  }
+
+  void deleteMessage(String messageId) {
+    _socket?.emit('deleteMessage', {'messageId': messageId});
+  }
+
+  void markAsRead(String groupId, List<String> messageIds) {
+    if (messageIds.isEmpty) return;
+    _socket?.emit('markAsRead', {'groupId': groupId, 'messageIds': messageIds});
+  }
+
+  void disconnect() {
+    _socket?.disconnect();
+    _socket?.dispose();
+    _socket = null;
+  }
+}
+</file>
+
+<file path="lib/features/chats/presentation/providers/chat_providers.dart">
+import 'dart:async';
+import 'dart:convert';
+import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../data/models/chat_models.dart';
+import '../../data/repositories/chat_repository.dart';
+import '../../data/services/chat_socket_service.dart';
+import '../../../../core/storage/secure_storage_provider.dart';
+
+// Provider for Current User ID from JWT
+final currentUserIdProvider = FutureProvider<String?>((ref) async {
+  final storage = ref.watch(secureStorageProvider);
+  final token = await storage.read(key: 'jwt_token');
+  if (token == null || token.isEmpty) return null;
+  
+  try {
+    final parts = token.split('.');
+    if (parts.length != 3) return null;
+    
+    final payload = base64Url.normalize(parts[1]);
+    final decoded = json.decode(utf8.decode(base64Url.decode(payload)));
+    
+    // Fallback to 'sub' if 'id' is not present, depending on backend JWT structure
+    return decoded['id'] ?? decoded['sub']; 
+  } catch (e) {
+    return null;
+  }
+});
+
+// Provider for Chat List
+final chatsListProvider = AsyncNotifierProvider<ChatsListNotifier, List<ChatGroup>>(
+  () => ChatsListNotifier(),
+);
+
+class ChatsListNotifier extends AsyncNotifier<List<ChatGroup>> {
+  StreamSubscription? _newMessageSub;
+
+  @override
+  Future<List<ChatGroup>> build() async {
+    final socket = ref.watch(chatSocketServiceProvider);
+    await socket.connect();
+
+    _newMessageSub?.cancel();
+    _newMessageSub = socket.onNewMessage.listen((msg) {
+      _updateLastMessage(msg);
+    });
+
+    ref.onDispose(() => _newMessageSub?.cancel());
+
+    final groups = await ref.watch(chatRepositoryProvider).getGroups();
+    
+    // Sort groups by latest message createdAt descending
+    groups.sort((a, b) {
+      final aDate = a.messages.isNotEmpty ? a.messages.first.createdAt : a.createdAt;
+      final bDate = b.messages.isNotEmpty ? b.messages.first.createdAt : b.createdAt;
+      return bDate.compareTo(aDate);
+    });
+    
+    return groups;
+  }
+
+  void _updateLastMessage(ChatMessage message) {
+    if (state.value == null) return;
+    final groups = [...state.value!];
+    
+    final index = groups.indexWhere((g) => g.id == message.groupId);
+    if (index != -1) {
+      final group = groups[index];
+      // Increment unread count if the message is not from us
+      final currentUserId = ref.read(currentUserIdProvider).value;
+      final isMine = currentUserId != null && message.senderId == currentUserId;
+      
+      groups[index] = group.copyWith(
+        messages: [message],
+        unreadCount: isMine ? group.unreadCount : group.unreadCount + 1,
+      );
+      
+      final updatedGroup = groups.removeAt(index);
+      groups.insert(0, updatedGroup);
+      
+      state = AsyncValue.data(groups);
+    }
+  }
+
+  void clearUnreadCount(String groupId) {
+    if (state.value == null) return;
+    final groups = [...state.value!];
+    final index = groups.indexWhere((g) => g.id == groupId);
+    if (index != -1) {
+      groups[index] = groups[index].copyWith(unreadCount: 0);
+      state = AsyncValue.data(groups);
+    }
+  }
+}
+
+// Provider for Chat Messages History (with Pagination)
+final chatMessagesProvider = AsyncNotifierProviderFamily<ChatMessagesNotifier, List<ChatMessage>, String>(
+  () => ChatMessagesNotifier(),
+);
+
+class ChatMessagesNotifier extends FamilyAsyncNotifier<List<ChatMessage>, String> {
+  StreamSubscription? _subNew;
+  StreamSubscription? _subUpdate;
+  StreamSubscription? _subDelete;
+  StreamSubscription? _subRead;
+
+  int _currentPage = 1;
+  bool _hasMore = true;
+  bool _isFetching = false;
+  final Set<String> _pendingReadReceipts = {};
+
+  bool get hasMore => _hasMore;
+
+  @override
+  Future<List<ChatMessage>> build(String arg) async {
+    final socket = ref.watch(chatSocketServiceProvider);
+    await socket.connect();
+    socket.joinRoom(arg);
+
+    _setupSocketListeners(socket);
+    
+    _currentPage = 1;
+    final response = await ref.watch(chatRepositoryProvider).getMessages(arg, page: _currentPage);
+    _hasMore = response.meta.page < response.meta.lastPage;
+    
+    // Clear unread count globally when opening chat
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(chatsListProvider.notifier).clearUnreadCount(arg);
+    });
+
+    return response.data.reversed.toList();
+  }
+
+  void _setupSocketListeners(ChatSocketService socket) {
+    _subNew?.cancel();
+    _subUpdate?.cancel();
+    _subDelete?.cancel();
+    _subRead?.cancel();
+
+    _subNew = socket.onNewMessage.listen((msg) {
+      if (msg.groupId == arg && state.value != null) {
+        state = AsyncValue.data([msg, ...state.value!]);
+        // Automatically mark new incoming messages as read if we are in the chat
+        final currentUserId = ref.read(currentUserIdProvider).value;
+        if (currentUserId != null && msg.senderId != currentUserId) {
+          markAsRead([msg.id]);
+        }
+      }
+    });
+
+    _subUpdate = socket.onMessageUpdated.listen((msg) {
+      if (msg.groupId == arg && state.value != null) {
+        final msgs = state.value!.map((m) => m.id == msg.id ? msg : m).toList();
+        state = AsyncValue.data(msgs);
+      }
+    });
+
+    _subDelete = socket.onMessageDeleted.listen((msg) {
+      if (msg.groupId == arg && state.value != null) {
+        final msgs = state.value!.map((m) => m.id == msg.id ? msg : m).toList();
+        state = AsyncValue.data(msgs);
+      }
+    });
+
+    _subRead = socket.onMessagesRead.listen((data) {
+      if (data['groupId'] == arg && state.value != null) {
+        final messageIds = List<String>.from(data['messageIds'] ?? []);
+        final readByUserId = data['readByUserId'] as String;
+        
+        final msgs = state.value!.map((m) {
+          if (messageIds.contains(m.id)) {
+            final newReceipt = ChatReadReceipt(userId: readByUserId, readAt: DateTime.now());
+            return m.copyWith(readReceipts: [...m.readReceipts, newReceipt]);
+          }
+          return m;
+        }).toList();
+        
+        state = AsyncValue.data(msgs);
+      }
+    });
+
+    ref.onDispose(() {
+      _subNew?.cancel();
+      _subUpdate?.cancel();
+      _subDelete?.cancel();
+      _subRead?.cancel();
+    });
+  }
+  
+  Future<void> loadMore() async {
+    if (!_hasMore || _isFetching) return;
+
+    _isFetching = true;
+    _currentPage++;
+    
+    try {
+      final response = await ref.read(chatRepositoryProvider).getMessages(arg, page: _currentPage);
+      _hasMore = response.meta.page < response.meta.lastPage;
+      
+      final currentMessages = state.value ?? [];
+      // Append older messages to the end of our reversed list
+      state = AsyncValue.data([...currentMessages, ...response.data.reversed.toList()]);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    } finally {
+      _isFetching = false;
+    }
+  }
+
+  void sendMessage(String content) {
+    ref.read(chatSocketServiceProvider).sendMessage(arg, content);
+  }
+
+  void deleteMessage(String messageId) {
+    ref.read(chatSocketServiceProvider).deleteMessage(messageId);
+  }
+
+  void markAsRead(List<String> messageIds) {
+    final currentUserId = ref.read(currentUserIdProvider).value;
+    if (currentUserId == null) return;
+    
+    final unreadIds = messageIds.where((id) => !_pendingReadReceipts.contains(id)).toList();
+    if (unreadIds.isEmpty) return;
+    
+    _pendingReadReceipts.addAll(unreadIds);
+    ref.read(chatSocketServiceProvider).markAsRead(arg, unreadIds);
+  }
+}
+</file>
+
+<file path="lib/features/chats/presentation/screens/chat_detail_screen.dart">
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
+import '../providers/chat_providers.dart';
+import '../../data/models/chat_models.dart';
+import '../../../../core/presentation/widgets/auth_network_image.dart';
+
+class ChatDetailScreen extends ConsumerStatefulWidget {
+  final String groupId;
+  const ChatDetailScreen({super.key, required this.groupId});
+
+  @override
+  ConsumerState<ChatDetailScreen> createState() => _ChatDetailScreenState();
+}
+
+class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
+  final _controller = TextEditingController();
+  final _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      ref.read(chatMessagesProvider(widget.groupId).notifier).loadMore();
+    }
+  }
+
+  void _send() {
+    final text = _controller.text.trim();
+    if (text.isEmpty) return;
+    
+    ref.read(chatMessagesProvider(widget.groupId).notifier).sendMessage(text);
+    _controller.clear();
+  }
+
+  void _showDeleteDialog(String messageId) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Видалити повідомлення?'),
+        content: const Text('Цю дію неможливо скасувати.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Скасувати')),
+          TextButton(
+            onPressed: () {
+              ref.read(chatMessagesProvider(widget.groupId).notifier).deleteMessage(messageId);
+              Navigator.pop(context);
+            },
+            child: const Text('Видалити', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final messagesState = ref.watch(chatMessagesProvider(widget.groupId));
+    final currentUserIdAsync = ref.watch(currentUserIdProvider);
+    final groupsState = ref.watch(chatsListProvider);
+    final theme = Theme.of(context);
+    
+    final groupName = groupsState.value?.where((g) => g.id == widget.groupId).firstOrNull?.name ?? 'Чат';
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(groupName, style: const TextStyle(fontWeight: FontWeight.bold)),
+        titleSpacing: 0,
+      ),
+      body: currentUserIdAsync.isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Column(
+              children: [
+                Expanded(
+                  child: messagesState.when(
+                    data: (messages) {
+                      if (messages.isEmpty) {
+                        return const Center(child: Text('Немає повідомлень'));
+                      }
+                      
+                      final currentUserId = currentUserIdAsync.value;
+
+                      return ListView.builder(
+                        controller: _scrollController,
+                        reverse: true, // Newest at the bottom
+                        padding: const EdgeInsets.only(top: 16, bottom: 16),
+                        itemCount: messages.length + 1,
+                        itemBuilder: (context, index) {
+                          if (index == messages.length) {
+                            final hasMore = ref.read(chatMessagesProvider(widget.groupId).notifier).hasMore;
+                            return hasMore 
+                                ? const Padding(padding: EdgeInsets.all(16.0), child: Center(child: CircularProgressIndicator()))
+                                : const SizedBox.shrink();
+                          }
+
+                          final msg = messages[index];
+                          final isMe = currentUserId != null && msg.senderId == currentUserId;
+                          
+                          // Mark as read if not me and no my receipt exists
+                          if (!isMe && currentUserId != null) {
+                            final isReadByMe = msg.readReceipts.any((r) => r.userId == currentUserId);
+                            if (!isReadByMe) {
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                ref.read(chatMessagesProvider(widget.groupId).notifier).markAsRead([msg.id]);
+                              });
+                            }
+                          }
+                          
+                          final isReadByOthers = msg.readReceipts.any((r) => r.userId != msg.senderId);
+                          
+                          // Grouping logic for bubble styles and spacing
+                          // reverse: true means index 0 is the newest message
+                          final bool isTop = index == messages.length - 1 || messages[index + 1].senderId != msg.senderId;
+                          final bool isBottom = index == 0 || messages[index - 1].senderId != msg.senderId;
+
+                          return GestureDetector(
+                            onLongPress: isMe && !msg.isDeleted ? () => _showDeleteDialog(msg.id) : null,
+                            child: Container(
+                              margin: EdgeInsets.only(
+                                top: isTop ? 16 : 2,
+                                bottom: index == 0 ? 12 : 0,
+                                left: 16,
+                                right: 16,
+                              ),
+                              child: Row(
+                                mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  if (!isMe) ...[
+                                    if (isBottom)
+                                      CircleAvatar(
+                                        radius: 16,
+                                        backgroundColor: theme.colorScheme.primaryContainer,
+                                        child: msg.sender?.avatarUrl != null
+                                            ? ClipOval(
+                                                child: AuthNetworkImage(
+                                                  imageUrl: msg.sender!.avatarUrl!,
+                                                  width: 32,
+                                                  height: 32,
+                                                  fit: BoxFit.cover,
+                                                ),
+                                              )
+                                            : Text(
+                                                msg.sender?.firstName.isNotEmpty == true 
+                                                    ? msg.sender!.firstName[0] 
+                                                    : '?',
+                                                style: TextStyle(
+                                                  fontSize: 14,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: theme.colorScheme.onPrimaryContainer,
+                                                ),
+                                              ),
+                                      )
+                                    else
+                                      const SizedBox(width: 32), // Space placeholder for avatar
+                                    const SizedBox(width: 8),
+                                  ],
+                                  Flexible(
+                                    child: Container(
+                                      constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
+                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                      decoration: BoxDecoration(
+                                        color: isMe ? theme.colorScheme.primary : theme.colorScheme.surfaceContainerHighest,
+                                        borderRadius: BorderRadius.only(
+                                          topLeft: Radius.circular(isMe ? 18 : (isTop ? 18 : 6)),
+                                          topRight: Radius.circular(!isMe ? 18 : (isTop ? 18 : 6)),
+                                          bottomLeft: Radius.circular(isMe ? 18 : 6),
+                                          bottomRight: Radius.circular(!isMe ? 18 : 6),
+                                        ),
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          if (!isMe && isTop && msg.sender != null) ...[
+                                            Text(
+                                              '${msg.sender!.firstName} ${msg.sender!.lastName}',
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 13,
+                                                color: theme.colorScheme.primary,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                          ],
+                                          Wrap(
+                                            alignment: WrapAlignment.end,
+                                            crossAxisAlignment: WrapCrossAlignment.end,
+                                            children: [
+                                              Text(
+                                                msg.isDeleted ? '[Повідомлення видалено]' : msg.content,
+                                                style: TextStyle(
+                                                  fontStyle: msg.isDeleted ? FontStyle.italic : FontStyle.normal,
+                                                  color: isMe ? theme.colorScheme.onPrimary : theme.colorScheme.onSurfaceVariant,
+                                                  fontSize: 15,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Padding(
+                                                padding: const EdgeInsets.only(bottom: 1),
+                                                child: Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    Text(
+                                                      DateFormat('HH:mm').format(msg.createdAt.toLocal()),
+                                                      style: TextStyle(
+                                                        fontSize: 11,
+                                                        color: isMe 
+                                                          ? theme.colorScheme.onPrimary.withValues(alpha: 0.7) 
+                                                          : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                                                      ),
+                                                    ),
+                                                    if (isMe) ...[
+                                                      const SizedBox(width: 4),
+                                                      Icon(
+                                                        isReadByOthers ? Icons.done_all : Icons.check,
+                                                        size: 14,
+                                                        color: isReadByOthers 
+                                                          ? theme.colorScheme.onPrimary 
+                                                          : theme.colorScheme.onPrimary.withValues(alpha: 0.7),
+                                                      ),
+                                                    ],
+                                                  ],
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      );
+                    },
+                    loading: () => const Center(child: CircularProgressIndicator()),
+                    error: (err, _) => Center(child: Text('Помилка: $err')),
+                  ),
+                ),
+                SafeArea(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surface,
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4, offset: const Offset(0, -2))
+                ],
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _controller,
+                      minLines: 1,
+                      maxLines: 5,
+                      keyboardType: TextInputType.multiline,
+                      textCapitalization: TextCapitalization.sentences,
+                      decoration: InputDecoration(
+                        hintText: 'Повідомлення...',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(24),
+                          borderSide: BorderSide.none,
+                        ),
+                        filled: true,
+                        fillColor: theme.colorScheme.surfaceContainerHighest,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  CircleAvatar(
+                    backgroundColor: theme.colorScheme.primary,
+                    child: IconButton(
+                      icon: const Icon(Icons.send, color: Colors.white, size: 20),
+                      onPressed: _send,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+</file>
+
+<file path="lib/features/chats/presentation/screens/chats_screen.dart">
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
+import '../providers/chat_providers.dart';
+import '../../../../core/presentation/widgets/auth_network_image.dart';
+
+class ChatsScreen extends ConsumerWidget {
+  const ChatsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final chatsState = ref.watch(chatsListProvider);
+    final currentUserIdAsync = ref.watch(currentUserIdProvider);
+    final currentUserId = currentUserIdAsync.value;
+
+    return Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      appBar: AppBar(
+        title: const Text('Чати', style: TextStyle(fontWeight: FontWeight.bold)),
+        centerTitle: true,
+      ),
+      body: chatsState.when(
+        data: (groups) {
+          if (groups.isEmpty) {
+            return const Center(child: Text('У вас ще немає чатів'));
+          }
+          return RefreshIndicator(
+            onRefresh: () async => ref.refresh(chatsListProvider),
+            child: ListView.separated(
+              itemCount: groups.length,
+              separatorBuilder: (_, __) => const Divider(height: 1, indent: 72),
+              itemBuilder: (context, index) {
+                final group = groups[index];
+                final lastMsg = group.messages.isNotEmpty ? group.messages.first : null;
+
+                return ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  leading: CircleAvatar(
+                    radius: 28,
+                    backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                    child: group.avatarUrl != null
+                        ? ClipOval(
+                            child: AuthNetworkImage(
+                              imageUrl: group.avatarUrl!,
+                              width: 56,
+                              height: 56,
+                              fit: BoxFit.cover,
+                            ),
+                          )
+                        : Text(group.name[0], style: const TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                  title: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          group.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                        ),
+                      ),
+                      if (lastMsg != null)
+                        Text(
+                          DateFormat('HH:mm').format(lastMsg.createdAt.toLocal()),
+                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: group.unreadCount > 0 ? Theme.of(context).colorScheme.primary : null,
+                            fontWeight: group.unreadCount > 0 ? FontWeight.bold : null,
+                          ),
+                        ),
+                    ],
+                  ),
+                  subtitle: Row(
+                    children: [
+                      Expanded(
+                        child: lastMsg != null
+                            ? RichText(
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                text: TextSpan(
+                                  style: TextStyle(
+                                    fontStyle: lastMsg.isDeleted ? FontStyle.italic : FontStyle.normal,
+                                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                    fontSize: 14,
+                                  ),
+                                  children: [
+                                    if (!lastMsg.isDeleted)
+                                      if (currentUserId != null && lastMsg.senderId == currentUserId)
+                                        TextSpan(
+                                          text: 'Ви: ',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            color: Theme.of(context).colorScheme.onSurface,
+                                          ),
+                                        )
+                                      else if (lastMsg.sender != null)
+                                        TextSpan(
+                                          text: '${lastMsg.sender!.firstName}: ',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            color: Theme.of(context).colorScheme.onSurface,
+                                          ),
+                                        ),
+                                    TextSpan(text: lastMsg.isDeleted ? '[Повідомлення видалено]' : lastMsg.content),
+                                  ],
+                                ),
+                              )
+                            : const Text('Немає повідомлень', style: TextStyle(fontStyle: FontStyle.italic)),
+                      ),
+                      if (group.unreadCount > 0)
+                        Container(
+                          margin: const EdgeInsets.only(left: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.primary,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            '${group.unreadCount}',
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.onPrimary,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  onTap: () => context.push('/chats/${group.id}'),
+                );
+              },
+            ),
+          );
+        },
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, _) => Center(child: Text('Помилка: $err')),
+      ),
+    );
+  }
+}
+</file>
+
 <file path="lib/features/polls/presentation/providers/poll_provider.dart">
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/models/poll_model.dart';
@@ -2657,423 +3593,6 @@ class NewsInteractionController {
 final newsListProvider = AsyncNotifierProvider<NewsListNotifier, List<NewsArticle>>(
   () => NewsListNotifier(),
 );
-</file>
-
-<file path="lib/features/news/presentations/screens/news_detail_screen.dart">
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
-import '../providers/news_providers.dart';
-import '../widgets/tiptap_renderer.dart';
-import '../../data/models/news_models.dart';
-import '../../../../core/presentation/widgets/auth_network_image.dart';
-
-class NewsDetailScreen extends ConsumerStatefulWidget {
-  final String newsId;
-  final bool scrollToComments;
-
-  const NewsDetailScreen({
-    super.key, 
-    required this.newsId,
-    this.scrollToComments = false,
-  });
-
-  @override
-  ConsumerState<NewsDetailScreen> createState() => _NewsDetailScreenState();
-}
-
-class _NewsDetailScreenState extends ConsumerState<NewsDetailScreen> {
-  final TextEditingController _commentController = TextEditingController();
-  final ScrollController _scrollController = ScrollController();
-  final GlobalKey _commentsSectionKey = GlobalKey();
-  
-  bool _hasScrolled = false;
-  bool _isSubmitting = false;
-
-  @override
-  void dispose() {
-    _commentController.dispose();
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _submitComment() async {
-    final text = _commentController.text.trim();
-    if (text.isEmpty) return;
-
-    setState(() => _isSubmitting = true);
-    try {
-      await ref.read(newsInteractionProvider).addComment(widget.newsId, text);
-      _commentController.clear();
-      FocusScope.of(context).unfocus();
-      
-      // Скрол до кінця після додавання коментаря
-      Future.delayed(const Duration(milliseconds: 300), () {
-        if (_scrollController.hasClients) {
-          _scrollController.animateTo(
-            _scrollController.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOut,
-          );
-        }
-      });
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isSubmitting = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final newsState = ref.watch(newsDetailProvider(widget.newsId));
-    final theme = Theme.of(context);
-
-    return Scaffold(
-      backgroundColor: theme.colorScheme.surface,
-      appBar: AppBar(
-        title: const Text('Новина'),
-      ),
-      body: newsState.when(
-        data: (article) {
-          // Автоскрол до коментарів при переході
-          if (widget.scrollToComments && !_hasScrolled) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (_commentsSectionKey.currentContext != null) {
-                Scrollable.ensureVisible(
-                  _commentsSectionKey.currentContext!,
-                  duration: const Duration(milliseconds: 500),
-                  curve: Curves.easeInOut,
-                );
-                _hasScrolled = true;
-              }
-            });
-          }
-
-          return Column(
-            children: [
-              Expanded(
-                child: SingleChildScrollView(
-                  controller: _scrollController,
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Категорія та Дата (без автора)
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          if (article.category != null)
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: theme.colorScheme.primaryContainer,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                article.category!.name,
-                                style: theme.textTheme.labelMedium?.copyWith(
-                                  color: theme.colorScheme.onPrimaryContainer,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            )
-                          else
-                            const SizedBox.shrink(),
-                          Text(
-                            DateFormat('dd MMMM yyyy, HH:mm').format(article.createdAt.toLocal()),
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        article.title,
-                        style: theme.textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          height: 1.3,
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      if (article.imageUrl != null && article.imageUrl!.isNotEmpty) ...[
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(16),
-                          child: AuthNetworkImage(
-                            imageUrl: article.imageUrl!,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                      ],
-                      // Рендерер JSON від TipTap
-                      TipTapRenderer(jsonContent: article.content),
-                      
-                      const SizedBox(height: 32),
-                      const Divider(),
-                      const SizedBox(height: 8),
-                      // Панель дій (Лайки / Дизлайки)
-                      Row(
-                        children: [
-                          _buildInteractionButton(
-                            icon: article.votes.any((v) => v.voteType == 'UPVOTE') 
-                                ? Icons.thumb_up 
-                                : Icons.thumb_up_alt_outlined,
-                            label: '${article.upvotes > 0 ? article.upvotes : (article.count?.likes ?? 0)}',
-                            isActive: article.votes.any((v) => v.voteType == 'UPVOTE'),
-                            activeColor: Colors.green.shade600,
-                            onTap: () async {
-                              try {
-                                await ref.read(newsInteractionProvider).vote(article.id, 'UPVOTE');
-                              } catch (e) {
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: Colors.red));
-                                }
-                              }
-                            },
-                          ),
-                          const SizedBox(width: 16),
-                          _buildInteractionButton(
-                            icon: article.votes.any((v) => v.voteType == 'DOWNVOTE') 
-                                ? Icons.thumb_down 
-                                : Icons.thumb_down_alt_outlined,
-                            label: '${article.downvotes > 0 ? article.downvotes : (article.count?.dislikes ?? 0)}',
-                            isActive: article.votes.any((v) => v.voteType == 'DOWNVOTE'),
-                            activeColor: Colors.red.shade600,
-                            onTap: () async {
-                              try {
-                                await ref.read(newsInteractionProvider).vote(article.id, 'DOWNVOTE');
-                              } catch (e) {
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: Colors.red));
-                                }
-                              }
-                            },
-                          ),
-                          const Spacer(),
-                          Icon(Icons.comment_outlined, size: 20, color: theme.colorScheme.outline),
-                          const SizedBox(width: 8),
-                          Text(
-                            '${article.count?.comments ?? 0}',
-                            style: theme.textTheme.labelLarge?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
-                      // Блок коментарів
-                      Container(
-                        key: _commentsSectionKey,
-                        child: Text(
-                          'Коментарі',
-                          style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      if (article.comments.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 32.0),
-                          child: Center(
-                            child: Text(
-                              'Немає коментарів. Будьте першим!',
-                              style: TextStyle(color: theme.colorScheme.outline),
-                            ),
-                          ),
-                        )
-                      else
-                        ListView.separated(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: article.comments.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 16),
-                          itemBuilder: (context, index) => _buildCommentTile(article.comments[index], theme),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-              _buildCommentInput(theme),
-            ],
-          );
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) => Center(child: Text('Помилка: $error')),
-      ),
-    );
-  }
-
-  Widget _buildInteractionButton({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-    required bool isActive,
-    required Color activeColor,
-  }) {
-    final theme = Theme.of(context);
-    final displayColor = isActive ? activeColor : theme.colorScheme.onSurfaceVariant;
-    
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: BoxDecoration(
-          color: isActive 
-              ? activeColor.withValues(alpha: 0.1) 
-              : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(20),
-          border: isActive 
-              ? Border.all(color: activeColor.withValues(alpha: 0.3)) 
-              : Border.all(color: Colors.transparent),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, size: 22, color: displayColor),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: theme.textTheme.labelLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: displayColor,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCommentTile(NewsComment comment, ThemeData theme) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        CircleAvatar(
-          radius: 18,
-          backgroundColor: theme.colorScheme.primaryContainer,
-          backgroundImage: comment.author.avatarUrl != null 
-            ? NetworkImage(comment.author.avatarUrl!) 
-            : null,
-          child: comment.author.avatarUrl == null 
-            ? Text(
-                comment.author.firstName[0],
-                style: TextStyle(color: theme.colorScheme.onPrimaryContainer, fontWeight: FontWeight.bold),
-              )
-            : null,
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-                  borderRadius: const BorderRadius.only(
-                    topRight: Radius.circular(16),
-                    bottomLeft: Radius.circular(16),
-                    bottomRight: Radius.circular(16),
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '${comment.author.firstName} ${comment.author.lastName}',
-                      style: theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      comment.content,
-                      style: theme.textTheme.bodyMedium?.copyWith(height: 1.3),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 4),
-              Padding(
-                padding: const EdgeInsets.only(left: 4.0),
-                child: Text(
-                  DateFormat('dd MMM HH:mm').format(comment.createdAt.toLocal()),
-                  style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildCommentInput(ThemeData theme) {
-    return Container(
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, -5),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-          child: Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _commentController,
-                  maxLines: 3,
-                  minLines: 1,
-                  textInputAction: TextInputAction.send,
-                  onSubmitted: (_) => _submitComment(),
-                  decoration: InputDecoration(
-                    hintText: 'Написати коментар...',
-                    filled: true,
-                    fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(24),
-                      borderSide: BorderSide.none,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Container(
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.primary,
-                  shape: BoxShape.circle,
-                ),
-                child: IconButton(
-                  icon: _isSubmitting
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
-                        )
-                      : const Icon(Icons.send_rounded, color: Colors.white, size: 20),
-                  onPressed: _isSubmitting ? null : _submitComment,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
 </file>
 
 <file path="lib/features/news/presentations/screens/news_screen.dart">
@@ -4367,6 +4886,428 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 }
 </file>
 
+<file path="lib/features/news/presentations/screens/news_detail_screen.dart">
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
+import '../providers/news_providers.dart';
+import '../widgets/tiptap_renderer.dart';
+import '../../data/models/news_models.dart';
+import '../../../../core/presentation/widgets/auth_network_image.dart';
+
+class NewsDetailScreen extends ConsumerStatefulWidget {
+  final String newsId;
+  final bool scrollToComments;
+
+  const NewsDetailScreen({
+    super.key, 
+    required this.newsId,
+    this.scrollToComments = false,
+  });
+
+  @override
+  ConsumerState<NewsDetailScreen> createState() => _NewsDetailScreenState();
+}
+
+class _NewsDetailScreenState extends ConsumerState<NewsDetailScreen> {
+  final TextEditingController _commentController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+  final GlobalKey _commentsSectionKey = GlobalKey();
+  
+  bool _hasScrolled = false;
+  bool _isSubmitting = false;
+
+  @override
+  void dispose() {
+    _commentController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submitComment() async {
+    final text = _commentController.text.trim();
+    if (text.isEmpty) return;
+
+    setState(() => _isSubmitting = true);
+    try {
+      await ref.read(newsInteractionProvider).addComment(widget.newsId, text);
+      _commentController.clear();
+      FocusScope.of(context).unfocus();
+      
+      // Скрол до кінця після додавання коментаря
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (_scrollController.hasClients) {
+          _scrollController.animateTo(
+            _scrollController.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          );
+        }
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final newsState = ref.watch(newsDetailProvider(widget.newsId));
+    final theme = Theme.of(context);
+
+    return Scaffold(
+      backgroundColor: theme.colorScheme.surface,
+      appBar: AppBar(
+        title: const Text('Новина'),
+      ),
+      body: newsState.when(
+        data: (article) {
+          // Автоскрол до коментарів при переході
+          if (widget.scrollToComments && !_hasScrolled) {
+            _hasScrolled = true; // Set immediately to prevent repeated triggers
+            
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              // Add a delay to allow dynamic content (TipTap, Images) to fully render and calculate exact layout height
+              Future.delayed(const Duration(milliseconds: 600), () {
+                if (_commentsSectionKey.currentContext != null && mounted) {
+                  Scrollable.ensureVisible(
+                    _commentsSectionKey.currentContext!,
+                    duration: const Duration(milliseconds: 600),
+                    curve: Curves.easeInOut,
+                    alignment: 0.05, // Align slightly below the top edge of the screen
+                  );
+                }
+              });
+            });
+          }
+
+          return Column(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Категорія та Дата (без автора)
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          if (article.category != null)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.primaryContainer,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                article.category!.name,
+                                style: theme.textTheme.labelMedium?.copyWith(
+                                  color: theme.colorScheme.onPrimaryContainer,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            )
+                          else
+                            const SizedBox.shrink(),
+                          Text(
+                            DateFormat('dd MMMM yyyy, HH:mm').format(article.createdAt.toLocal()),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        article.title,
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          height: 1.3,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      if (article.imageUrl != null && article.imageUrl!.isNotEmpty) ...[
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: AuthNetworkImage(
+                            imageUrl: article.imageUrl!,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                      ],
+                      // Рендерер JSON від TipTap
+                      TipTapRenderer(jsonContent: article.content),
+                      
+                      const SizedBox(height: 32),
+                      const Divider(),
+                      const SizedBox(height: 8),
+                      // Панель дій (Лайки / Дизлайки)
+                      Row(
+                        children: [
+                          _buildInteractionButton(
+                            icon: article.votes.any((v) => v.voteType == 'UPVOTE') 
+                                ? Icons.thumb_up 
+                                : Icons.thumb_up_alt_outlined,
+                            label: '${article.upvotes > 0 ? article.upvotes : (article.count?.likes ?? 0)}',
+                            isActive: article.votes.any((v) => v.voteType == 'UPVOTE'),
+                            activeColor: Colors.green.shade600,
+                            onTap: () async {
+                              try {
+                                await ref.read(newsInteractionProvider).vote(article.id, 'UPVOTE');
+                              } catch (e) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: Colors.red));
+                                }
+                              }
+                            },
+                          ),
+                          const SizedBox(width: 16),
+                          _buildInteractionButton(
+                            icon: article.votes.any((v) => v.voteType == 'DOWNVOTE') 
+                                ? Icons.thumb_down 
+                                : Icons.thumb_down_alt_outlined,
+                            label: '${article.downvotes > 0 ? article.downvotes : (article.count?.dislikes ?? 0)}',
+                            isActive: article.votes.any((v) => v.voteType == 'DOWNVOTE'),
+                            activeColor: Colors.red.shade600,
+                            onTap: () async {
+                              try {
+                                await ref.read(newsInteractionProvider).vote(article.id, 'DOWNVOTE');
+                              } catch (e) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: Colors.red));
+                                }
+                              }
+                            },
+                          ),
+                          const Spacer(),
+                          Icon(Icons.comment_outlined, size: 20, color: theme.colorScheme.outline),
+                          const SizedBox(width: 8),
+                          Text(
+                            '${article.count?.comments ?? 0}',
+                            style: theme.textTheme.labelLarge?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+                      // Блок коментарів
+                      Container(
+                        key: _commentsSectionKey,
+                        child: Text(
+                          'Коментарі',
+                          style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      if (article.comments.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 32.0),
+                          child: Center(
+                            child: Text(
+                              'Немає коментарів. Будьте першим!',
+                              style: TextStyle(color: theme.colorScheme.outline),
+                            ),
+                          ),
+                        )
+                      else
+                        ListView.separated(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: article.comments.length,
+                          separatorBuilder: (_, __) => const SizedBox(height: 16),
+                          itemBuilder: (context, index) => _buildCommentTile(article.comments[index], theme),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+              _buildCommentInput(theme),
+            ],
+          );
+        },
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (error, stack) => Center(child: Text('Помилка: $error')),
+      ),
+    );
+  }
+
+  Widget _buildInteractionButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    required bool isActive,
+    required Color activeColor,
+  }) {
+    final theme = Theme.of(context);
+    final displayColor = isActive ? activeColor : theme.colorScheme.onSurfaceVariant;
+    
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: isActive 
+              ? activeColor.withValues(alpha: 0.1) 
+              : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(20),
+          border: isActive 
+              ? Border.all(color: activeColor.withValues(alpha: 0.3)) 
+              : Border.all(color: Colors.transparent),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 22, color: displayColor),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: theme.textTheme.labelLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: displayColor,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCommentTile(NewsComment comment, ThemeData theme) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        CircleAvatar(
+          radius: 18,
+          backgroundColor: theme.colorScheme.primaryContainer,
+          backgroundImage: comment.author.avatarUrl != null 
+            ? NetworkImage(comment.author.avatarUrl!) 
+            : null,
+          child: comment.author.avatarUrl == null 
+            ? Text(
+                comment.author.firstName[0],
+                style: TextStyle(color: theme.colorScheme.onPrimaryContainer, fontWeight: FontWeight.bold),
+              )
+            : null,
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+                  borderRadius: const BorderRadius.only(
+                    topRight: Radius.circular(16),
+                    bottomLeft: Radius.circular(16),
+                    bottomRight: Radius.circular(16),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${comment.author.firstName} ${comment.author.lastName}',
+                      style: theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      comment.content,
+                      style: theme.textTheme.bodyMedium?.copyWith(height: 1.3),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 4),
+              Padding(
+                padding: const EdgeInsets.only(left: 4.0),
+                child: Text(
+                  DateFormat('dd MMM HH:mm').format(comment.createdAt.toLocal()),
+                  style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCommentInput(ThemeData theme) {
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, -5),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _commentController,
+                  maxLines: 3,
+                  minLines: 1,
+                  textInputAction: TextInputAction.send,
+                  onSubmitted: (_) => _submitComment(),
+                  decoration: InputDecoration(
+                    hintText: 'Написати коментар...',
+                    filled: true,
+                    fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(24),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Container(
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary,
+                  shape: BoxShape.circle,
+                ),
+                child: IconButton(
+                  icon: _isSubmitting
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+                        )
+                      : const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+                  onPressed: _isSubmitting ? null : _submitComment,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+</file>
+
 <file path="lib/features/polls/presentation/screens/polls_screen.dart">
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5434,6 +6375,22 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
+  socket_io_client:
+    dependency: "direct main"
+    description:
+      name: socket_io_client
+      sha256: f5990ff303d385e7b2150f0e57cca097a8d20c6a2ae0a22cb2d496661ea8ed9b
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.1.6"
+  socket_io_common:
+    dependency: transitive
+    description:
+      name: socket_io_common
+      sha256: "162fbaecbf4bf9a9372a62a341b3550b51dcef2f02f3e5830a297fd48203d45b"
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.1.1"
   source_gen:
     dependency: transitive
     description:
@@ -5683,6 +6640,7 @@ dependencies:
   go_router: ^17.3.0
   intl: ^0.20.3
   json_annotation: ^4.12.0
+  socket_io_client: ^3.1.6
   url_launcher: ^6.3.2
 
 dev_dependencies:
@@ -5709,6 +6667,8 @@ import '../../features/polls/presentation/screens/polls_screen.dart';
 import '../../features/polls/presentation/screens/poll_detail_screen.dart';
 import '../../features/news/presentations/screens/news_screen.dart';
 import '../../features/news/presentations/screens/news_detail_screen.dart';
+import '../../features/chats/presentation/screens/chats_screen.dart';
+import '../../features/chats/presentation/screens/chat_detail_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   // Використовуємо ValueNotifier, щоб GoRouter реагував на зміни без перестворення самого себе
@@ -5806,7 +6766,16 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: '/chats',
-                builder: (context, state) => const Scaffold(body: Center(child: Text('Чати'))),
+                builder: (context, state) => const ChatsScreen(),
+                routes: [
+                  GoRoute(
+                    path: ':id',
+                    builder: (context, state) {
+                      final groupId = state.pathParameters['id']!;
+                      return ChatDetailScreen(groupId: groupId);
+                    },
+                  ),
+                ],
               ),
             ],
           ),

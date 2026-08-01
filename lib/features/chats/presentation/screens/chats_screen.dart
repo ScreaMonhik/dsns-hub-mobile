@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../providers/chat_providers.dart';
 import '../../../../core/presentation/widgets/auth_network_image.dart';
+import '../../../profile/presentation/widgets/user_profile_button.dart';
 
 class ChatsScreen extends ConsumerWidget {
   const ChatsScreen({super.key});
@@ -11,14 +12,14 @@ class ChatsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final chatsState = ref.watch(chatsListProvider);
-    final currentUserIdAsync = ref.watch(currentUserIdProvider);
-    final currentUserId = currentUserIdAsync.value;
+    final currentUserId = ref.watch(currentUserIdProvider);
 
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
         title: const Text('Чати', style: TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: true,
+        actions: const [UserProfileButton()],
       ),
       body: chatsState.when(
         data: (groups) {

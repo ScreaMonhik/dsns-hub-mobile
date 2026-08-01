@@ -66,5 +66,9 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Додаток потребує доступу до галереї для завантаження фото профілю</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Додаток потребує доступу до камери для створення фото профілю</string>
 </dict>
 </plist>

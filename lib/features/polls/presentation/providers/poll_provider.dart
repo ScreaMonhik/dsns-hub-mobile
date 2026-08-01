@@ -1,16 +1,29 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/models/poll_model.dart';
 import '../../data/repositories/poll_repository.dart';
+import '../../../auth/providers/auth_provider.dart';
 
 final pollsProvider = StateNotifierProvider<PollsNotifier, AsyncValue<List<Poll>>>((ref) {
+  final token = ref.watch(currentTokenProvider);
   final repository = ref.watch(pollRepositoryProvider);
-  return PollsNotifier(repository)..fetchPolls();
+  
+  final notifier = PollsNotifier(repository);
+  if (token != null && token.isNotEmpty) {
+    notifier.fetchPolls();
+  } else {
+    notifier.clear();
+  }
+  return notifier;
 });
 
 class PollsNotifier extends StateNotifier<AsyncValue<List<Poll>>> {
   final PollRepository _repository;
 
   PollsNotifier(this._repository) : super(const AsyncValue.loading());
+
+  void clear() {
+    state = const AsyncValue.data([]);
+  }
 
   Future<void> fetchPolls() async {
     try {

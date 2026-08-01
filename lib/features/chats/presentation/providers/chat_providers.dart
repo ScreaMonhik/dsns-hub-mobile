@@ -5,12 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/models/chat_models.dart';
 import '../../data/repositories/chat_repository.dart';
 import '../../data/services/chat_socket_service.dart';
-import '../../../../core/storage/secure_storage_provider.dart';
+import '../../../auth/providers/auth_provider.dart';
 
-// Provider for Current User ID from JWT
-final currentUserIdProvider = FutureProvider<String?>((ref) async {
-  final storage = ref.watch(secureStorageProvider);
-  final token = await storage.read(key: 'jwt_token');
+final currentUserIdProvider = Provider<String?>((ref) {
+  final token = ref.watch(currentTokenProvider);
   if (token == null || token.isEmpty) return null;
   
   try {
@@ -20,14 +18,12 @@ final currentUserIdProvider = FutureProvider<String?>((ref) async {
     final payload = base64Url.normalize(parts[1]);
     final decoded = json.decode(utf8.decode(base64Url.decode(payload)));
     
-    // Fallback to 'sub' if 'id' is not present, depending on backend JWT structure
     return decoded['id'] ?? decoded['sub']; 
   } catch (e) {
     return null;
   }
 });
 
-// Provider for Chat List
 final chatsListProvider = AsyncNotifierProvider<ChatsListNotifier, List<ChatGroup>>(
   () => ChatsListNotifier(),
 );
@@ -37,7 +33,14 @@ class ChatsListNotifier extends AsyncNotifier<List<ChatGroup>> {
 
   @override
   Future<List<ChatGroup>> build() async {
+    final token = ref.watch(currentTokenProvider);
     final socket = ref.watch(chatSocketServiceProvider);
+    
+    if (token == null || token.isEmpty) {
+      socket.disconnect();
+      return [];
+    }
+
     await socket.connect();
 
     _newMessageSub?.cancel();
@@ -49,7 +52,6 @@ class ChatsListNotifier extends AsyncNotifier<List<ChatGroup>> {
 
     final groups = await ref.watch(chatRepositoryProvider).getGroups();
     
-    // Sort groups by latest message createdAt descending
     groups.sort((a, b) {
       final aDate = a.messages.isNotEmpty ? a.messages.first.createdAt : a.createdAt;
       final bDate = b.messages.isNotEmpty ? b.messages.first.createdAt : b.createdAt;
@@ -66,8 +68,7 @@ class ChatsListNotifier extends AsyncNotifier<List<ChatGroup>> {
     final index = groups.indexWhere((g) => g.id == message.groupId);
     if (index != -1) {
       final group = groups[index];
-      // Increment unread count if the message is not from us
-      final currentUserId = ref.read(currentUserIdProvider).value;
+      final currentUserId = ref.read(currentUserIdProvider);
       final isMine = currentUserId != null && message.senderId == currentUserId;
       
       groups[index] = group.copyWith(
@@ -93,7 +94,6 @@ class ChatsListNotifier extends AsyncNotifier<List<ChatGroup>> {
   }
 }
 
-// Provider for Chat Messages History (with Pagination)
 final chatMessagesProvider = AsyncNotifierProviderFamily<ChatMessagesNotifier, List<ChatMessage>, String>(
   () => ChatMessagesNotifier(),
 );
@@ -113,7 +113,13 @@ class ChatMessagesNotifier extends FamilyAsyncNotifier<List<ChatMessage>, String
 
   @override
   Future<List<ChatMessage>> build(String arg) async {
+    final token = ref.watch(currentTokenProvider);
     final socket = ref.watch(chatSocketServiceProvider);
+    
+    if (token == null || token.isEmpty) {
+      return [];
+    }
+
     await socket.connect();
     socket.joinRoom(arg);
 
@@ -123,7 +129,6 @@ class ChatMessagesNotifier extends FamilyAsyncNotifier<List<ChatMessage>, String
     final response = await ref.watch(chatRepositoryProvider).getMessages(arg, page: _currentPage);
     _hasMore = response.meta.page < response.meta.lastPage;
     
-    // Clear unread count globally when opening chat
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(chatsListProvider.notifier).clearUnreadCount(arg);
     });
@@ -140,8 +145,7 @@ class ChatMessagesNotifier extends FamilyAsyncNotifier<List<ChatMessage>, String
     _subNew = socket.onNewMessage.listen((msg) {
       if (msg.groupId == arg && state.value != null) {
         state = AsyncValue.data([msg, ...state.value!]);
-        // Automatically mark new incoming messages as read if we are in the chat
-        final currentUserId = ref.read(currentUserIdProvider).value;
+        final currentUserId = ref.read(currentUserIdProvider);
         if (currentUserId != null && msg.senderId != currentUserId) {
           markAsRead([msg.id]);
         }
@@ -198,7 +202,6 @@ class ChatMessagesNotifier extends FamilyAsyncNotifier<List<ChatMessage>, String
       _hasMore = response.meta.page < response.meta.lastPage;
       
       final currentMessages = state.value ?? [];
-      // Append older messages to the end of our reversed list
       state = AsyncValue.data([...currentMessages, ...response.data.reversed.toList()]);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
@@ -216,7 +219,7 @@ class ChatMessagesNotifier extends FamilyAsyncNotifier<List<ChatMessage>, String
   }
 
   void markAsRead(List<String> messageIds) {
-    final currentUserId = ref.read(currentUserIdProvider).value;
+    final currentUserId = ref.read(currentUserIdProvider);
     if (currentUserId == null) return;
     
     final unreadIds = messageIds.where((id) => !_pendingReadReceipts.contains(id)).toList();

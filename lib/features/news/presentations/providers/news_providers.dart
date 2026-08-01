@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/models/news_models.dart';
 import '../../data/repositories/news-repository.dart';
+import '../../../auth/providers/auth_provider.dart';
 
 // Provider для детальної інформації про новину
 final newsDetailProvider = FutureProvider.family<NewsArticle, String>((ref, id) async {
@@ -10,6 +11,8 @@ final newsDetailProvider = FutureProvider.family<NewsArticle, String>((ref, id) 
 
 // Провайдер для списку категорій
 final Provider<Future<List<NewsCategory>>> newsCategoriesProvider = Provider((ref) {
+  final token = ref.watch(currentTokenProvider);
+  if (token == null || token.isEmpty) return Future.value([]);
   return ref.watch(newsRepositoryProvider).getCategories();
 });
 
@@ -26,8 +29,11 @@ class NewsListNotifier extends AsyncNotifier<List<NewsArticle>> {
 
   @override
   Future<List<NewsArticle>> build() async {
+    // Якщо токен пропав (логаут), повертаємо пустий список
+    final token = ref.watch(currentTokenProvider);
+    if (token == null || token.isEmpty) return [];
+
     _currentPage = 1;
-    // Відстежуємо обрану категорію. При її зміні метод build викличеться заново!
     final categoryId = ref.watch(selectedCategoryProvider);
     return _fetchPage(1, categoryId: categoryId);
   }

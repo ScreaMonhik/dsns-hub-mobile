@@ -11,6 +11,7 @@ import '../../features/news/presentations/screens/news_screen.dart';
 import '../../features/news/presentations/screens/news_detail_screen.dart';
 import '../../features/chats/presentation/screens/chats_screen.dart';
 import '../../features/chats/presentation/screens/chat_detail_screen.dart';
+import '../../features/profile/presentation/screens/profile_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   // Використовуємо ValueNotifier, щоб GoRouter реагував на зміни без перестворення самого себе
@@ -29,11 +30,14 @@ final routerProvider = Provider<GoRouter>((ref) {
     refreshListenable: authStateNotifier,
     redirect: (context, state) {
       final authState = authStateNotifier.value;
+      final isLoggingIn = state.matchedLocation == '/login';
       
-      if (authState.isLoading) return null; 
+      // Блокуємо доступ до системи, поки йде перевірка токена (фікс Race Condition)
+      if (authState.isLoading) {
+        return isLoggingIn ? null : '/login';
+      }
 
       final isAuthenticated = authState.valueOrNull ?? false;
-      final isLoggingIn = state.matchedLocation == '/login';
 
       if (!isAuthenticated && !isLoggingIn) return '/login';
       if (isAuthenticated && isLoggingIn) return '/news';
@@ -44,6 +48,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/login',
         builder: (context, state) => const LoginScreen(),
+      ),
+      GoRoute(
+        path: '/profile',
+        builder: (context, state) => const ProfileScreen(),
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {

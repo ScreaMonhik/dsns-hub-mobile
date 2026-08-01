@@ -1,12 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:dsns_hub/features/auth/providers/auth_provider.dart';
-
-// Provider for Secure Storage
-final Provider<FlutterSecureStorage> secureStorageProvider = Provider<FlutterSecureStorage>((ref) {
-  return const FlutterSecureStorage();
-});
+import '../../features/auth/providers/auth_provider.dart';
 
 final Provider<Dio> dioProvider = Provider<Dio>((ref) {
   final dio = Dio(
@@ -14,36 +8,36 @@ final Provider<Dio> dioProvider = Provider<Dio>((ref) {
       baseUrl: 'http://10.0.2.2:3000',
       connectTimeout: const Duration(seconds: 10),
       receiveTimeout: const Duration(seconds: 10),
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      // Ніяких хардкодних contentType! Dio сам розбереться з FormData
     ),
   );
 
-  final secureStorage = ref.read(secureStorageProvider);
-
   dio.interceptors.add(
     InterceptorsWrapper(
-      onRequest: (options, handler) async {
-        // УВАГА: Переконайтеся, що ключ 'jwt_token' збігається з тим, 
-        // який ви використовуєте при збереженні токена під час логіну!
-        final token = await secureStorage.read(key: 'jwt_token');
-
+      onRequest: (options, handler) {
+        final token = ref.read(currentTokenProvider);
         if (token != null && token.isNotEmpty) {
           options.headers['Authorization'] = 'Bearer $token';
         }
-
         return handler.next(options);
       },
-      onError: (DioException e, handler) async {
-        if (e.response?.statusCode == 401) {
-          // Автоматичний логаут при простроченому або недійсному токені
+      onError: (DioException e, handler) {
+        if (e.response?.statusCode == 401 && e.requestOptions.path != '/auth/login') {
           ref.read(authStateProvider.notifier).logout();
         }
         return handler.next(e);
       },
     ),
   );
+
+  dio.interceptors.add(LogInterceptor(
+    request: true,
+    requestHeader: true,
+    requestBody: false, // Не логуємо тіло, щоб консоль не зависла від байтів картинки
+    responseHeader: false,
+    responseBody: true,
+    error: true,
+  ));
 
   return dio;
 });

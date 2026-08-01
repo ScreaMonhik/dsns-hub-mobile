@@ -1,26 +1,31 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:dsns_hub/core/network/dio_provider.dart';
-import 'package:dsns_hub/features/auth/data/repositories/auth_repository.dart';
+import '../../../core/storage/secure_storage_provider.dart';
+import '../data/repositories/auth_repository.dart';
+
+final currentTokenProvider = StateProvider<String?>((ref) => null);
 
 final authStateProvider = StateNotifierProvider<AuthNotifier, AsyncValue<bool>>((ref) {
   return AuthNotifier(
     ref.watch(authRepositoryProvider),
     ref.watch(secureStorageProvider),
+    ref,
   );
 });
 
 class AuthNotifier extends StateNotifier<AsyncValue<bool>> {
   final AuthRepository _repository;
   final FlutterSecureStorage _storage;
+  final Ref _ref;
 
-  AuthNotifier(this._repository, this._storage) : super(const AsyncValue.loading()) {
+  AuthNotifier(this._repository, this._storage, this._ref) : super(const AsyncValue.loading()) {
     _checkToken();
   }
 
   Future<void> _checkToken() async {
     final token = await _storage.read(key: 'jwt_token');
     if (token != null && token.isNotEmpty) {
+      _ref.read(currentTokenProvider.notifier).state = token;
       state = const AsyncValue.data(true);
     } else {
       state = const AsyncValue.data(false);
@@ -31,8 +36,8 @@ class AuthNotifier extends StateNotifier<AsyncValue<bool>> {
     state = const AsyncValue.loading();
     try {
       final token = await _repository.login(email, password);
-      // Save token to secure storage under the same key Dio interceptor uses
       await _storage.write(key: 'jwt_token', value: token);
+      _ref.read(currentTokenProvider.notifier).state = token;
       state = const AsyncValue.data(true);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
@@ -40,7 +45,12 @@ class AuthNotifier extends StateNotifier<AsyncValue<bool>> {
   }
 
   Future<void> logout() async {
-    await _storage.delete(key: 'jwt_token');
+    try {
+      await _storage.delete(key: 'jwt_token');
+    } catch (_) {
+      // Ігноруємо системні краші стораджа, щоб гарантовано змінити стейт
+    }
+    _ref.read(currentTokenProvider.notifier).state = null;
     state = const AsyncValue.data(false);
   }
 }

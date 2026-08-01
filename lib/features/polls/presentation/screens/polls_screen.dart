@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:dsns_hub/core/presentation/widgets/filter_choice_chip.dart';
 import '../providers/poll_provider.dart';
 import '../../data/models/poll_model.dart';
+import '../../../profile/presentation/widgets/user_profile_button.dart';
 
 class PollsScreen extends ConsumerStatefulWidget {
   const PollsScreen({super.key});
@@ -40,6 +41,7 @@ class _PollsScreenState extends ConsumerState<PollsScreen> {
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
+        actions: const [UserProfileButton()],
       ),
       body: Column(
         children: [

@@ -5,6 +5,7 @@ import '../../data/models/news_models.dart';
 import 'package:dsns_hub/core/presentation/widgets/filter_choice_chip.dart';
 import '../providers/news_providers.dart';
 import '../widgets/news_card.dart';
+import '../../../profile/presentation/widgets/user_profile_button.dart';
 
 class NewsScreen extends ConsumerStatefulWidget {
   const NewsScreen({super.key});
@@ -50,6 +51,7 @@ class _NewsScreenState extends ConsumerState<NewsScreen> {
         title: const Text('Стрічка новин', style: TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: true,
         scrolledUnderElevation: 2,
+        actions: const [UserProfileButton()],
       ),
       body: Column(
         children: [

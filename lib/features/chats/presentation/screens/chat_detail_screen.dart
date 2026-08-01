@@ -68,7 +68,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final messagesState = ref.watch(chatMessagesProvider(widget.groupId));
-    final currentUserIdAsync = ref.watch(currentUserIdProvider);
+    final currentUserId = ref.watch(currentUserIdProvider);
     final groupsState = ref.watch(chatsListProvider);
     final theme = Theme.of(context);
     
@@ -79,9 +79,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
         title: Text(groupName, style: const TextStyle(fontWeight: FontWeight.bold)),
         titleSpacing: 0,
       ),
-      body: currentUserIdAsync.isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : Column(
+      body: Column(
               children: [
                 Expanded(
                   child: messagesState.when(
@@ -90,8 +88,6 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                         return const Center(child: Text('Немає повідомлень'));
                       }
                       
-                      final currentUserId = currentUserIdAsync.value;
-
                       return ListView.builder(
                         controller: _scrollController,
                         reverse: true, // Newest at the bottom

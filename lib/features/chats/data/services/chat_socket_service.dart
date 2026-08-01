@@ -1,22 +1,19 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
-import '../../../../core/network/dio_provider.dart';
 import '../models/chat_models.dart';
+import '../../../auth/providers/auth_provider.dart';
 
 final chatSocketServiceProvider = Provider<ChatSocketService>((ref) {
-  final storage = ref.watch(secureStorageProvider);
-  final service = ChatSocketService(storage);
+  final service = ChatSocketService(ref);
   ref.onDispose(() => service.disconnect());
   return service;
 });
 
 class ChatSocketService {
-  final FlutterSecureStorage _storage;
+  final Ref _ref;
   IO.Socket? _socket;
 
-  // Streams for real-time events
   final _messageController = StreamController<ChatMessage>.broadcast();
   final _messageUpdatedController = StreamController<ChatMessage>.broadcast();
   final _messageDeletedController = StreamController<ChatMessage>.broadcast();
@@ -27,12 +24,12 @@ class ChatSocketService {
   Stream<ChatMessage> get onMessageDeleted => _messageDeletedController.stream;
   Stream<Map<String, dynamic>> get onMessagesRead => _messagesReadController.stream;
 
-  ChatSocketService(this._storage);
+  ChatSocketService(this._ref);
 
   Future<void> connect() async {
     if (_socket != null && _socket!.connected) return;
 
-    final token = await _storage.read(key: 'jwt_token');
+    final token = _ref.read(currentTokenProvider);
     
     _socket = IO.io(
       'http://10.0.2.2:3000/chat',
