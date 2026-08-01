@@ -9,6 +9,8 @@ import '../../features/polls/presentation/screens/polls_screen.dart';
 import '../../features/polls/presentation/screens/poll_detail_screen.dart';
 import '../../features/news/presentations/screens/news_screen.dart';
 import '../../features/news/presentations/screens/news_detail_screen.dart';
+import '../../features/chats/presentation/screens/chats_screen.dart';
+import '../../features/chats/presentation/screens/chat_detail_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   // Використовуємо ValueNotifier, щоб GoRouter реагував на зміни без перестворення самого себе
@@ -106,7 +108,16 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: '/chats',
-                builder: (context, state) => const Scaffold(body: Center(child: Text('Чати'))),
+                builder: (context, state) => const ChatsScreen(),
+                routes: [
+                  GoRoute(
+                    path: ':id',
+                    builder: (context, state) {
+                      final groupId = state.pathParameters['id']!;
+                      return ChatDetailScreen(groupId: groupId);
+                    },
+                  ),
+                ],
               ),
             ],
           ),
