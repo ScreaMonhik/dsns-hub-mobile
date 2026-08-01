@@ -20,10 +20,12 @@ class ChatSocketService {
   final _messageController = StreamController<ChatMessage>.broadcast();
   final _messageUpdatedController = StreamController<ChatMessage>.broadcast();
   final _messageDeletedController = StreamController<ChatMessage>.broadcast();
+  final _messagesReadController = StreamController<Map<String, dynamic>>.broadcast();
 
   Stream<ChatMessage> get onNewMessage => _messageController.stream;
   Stream<ChatMessage> get onMessageUpdated => _messageUpdatedController.stream;
   Stream<ChatMessage> get onMessageDeleted => _messageDeletedController.stream;
+  Stream<Map<String, dynamic>> get onMessagesRead => _messagesReadController.stream;
 
   ChatSocketService(this._storage);
 
@@ -54,6 +56,10 @@ class ChatSocketService {
     _socket!.on('messageDeleted', (data) {
       if (data != null) _messageDeletedController.add(ChatMessage.fromJson(data));
     });
+
+    _socket!.on('messagesRead', (data) {
+      if (data != null) _messagesReadController.add(Map<String, dynamic>.from(data));
+    });
   }
 
   void joinRoom(String groupId) {
@@ -70,6 +76,11 @@ class ChatSocketService {
 
   void deleteMessage(String messageId) {
     _socket?.emit('deleteMessage', {'messageId': messageId});
+  }
+
+  void markAsRead(String groupId, List<String> messageIds) {
+    if (messageIds.isEmpty) return;
+    _socket?.emit('markAsRead', {'groupId': groupId, 'messageIds': messageIds});
   }
 
   void disconnect() {

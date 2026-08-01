@@ -11,6 +11,8 @@ class ChatsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final chatsState = ref.watch(chatsListProvider);
+    final currentUserIdAsync = ref.watch(currentUserIdProvider);
+    final currentUserId = currentUserIdAsync.value;
 
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
@@ -48,29 +50,83 @@ class ChatsScreen extends ConsumerWidget {
                           )
                         : Text(group.name[0], style: const TextStyle(fontWeight: FontWeight.bold)),
                   ),
-                  title: Text(
-                    group.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                  subtitle: lastMsg != null
-                      ? Text(
-                          lastMsg.isDeleted ? '[Повідомлення видалено]' : lastMsg.content,
+                  title: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          group.name,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontStyle: lastMsg.isDeleted ? FontStyle.italic : FontStyle.normal,
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
-                          ),
-                        )
-                      : const Text('Немає повідомлень', style: TextStyle(fontStyle: FontStyle.italic)),
-                  trailing: lastMsg != null
-                      ? Text(
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                        ),
+                      ),
+                      if (lastMsg != null)
+                        Text(
                           DateFormat('HH:mm').format(lastMsg.createdAt.toLocal()),
-                          style: Theme.of(context).textTheme.labelSmall,
-                        )
-                      : null,
+                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: group.unreadCount > 0 ? Theme.of(context).colorScheme.primary : null,
+                            fontWeight: group.unreadCount > 0 ? FontWeight.bold : null,
+                          ),
+                        ),
+                    ],
+                  ),
+                  subtitle: Row(
+                    children: [
+                      Expanded(
+                        child: lastMsg != null
+                            ? RichText(
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                text: TextSpan(
+                                  style: TextStyle(
+                                    fontStyle: lastMsg.isDeleted ? FontStyle.italic : FontStyle.normal,
+                                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                    fontSize: 14,
+                                  ),
+                                  children: [
+                                    if (!lastMsg.isDeleted)
+                                      if (currentUserId != null && lastMsg.senderId == currentUserId)
+                                        TextSpan(
+                                          text: 'Ви: ',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            color: Theme.of(context).colorScheme.onSurface,
+                                          ),
+                                        )
+                                      else if (lastMsg.sender != null)
+                                        TextSpan(
+                                          text: '${lastMsg.sender!.firstName}: ',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            color: Theme.of(context).colorScheme.onSurface,
+                                          ),
+                                        ),
+                                    TextSpan(text: lastMsg.isDeleted ? '[Повідомлення видалено]' : lastMsg.content),
+                                  ],
+                                ),
+                              )
+                            : const Text('Немає повідомлень', style: TextStyle(fontStyle: FontStyle.italic)),
+                      ),
+                      if (group.unreadCount > 0)
+                        Container(
+                          margin: const EdgeInsets.only(left: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.primary,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            '${group.unreadCount}',
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.onPrimary,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                   onTap: () => context.push('/chats/${group.id}'),
                 );
               },

@@ -18,9 +18,14 @@ class ChatRepository {
     return data.map((json) => ChatGroup.fromJson(json as Map<String, dynamic>)).toList();
   }
 
-  Future<List<ChatMessage>> getMessages(String groupId) async {
-    final response = await _dio.get('/chat/groups/$groupId/messages');
-    final history = ChatHistoryResponse.fromJson(response.data);
-    return history.data;
+  Future<ChatHistoryResponse> getMessages(String groupId, {int page = 1, int limit = 20}) async {
+    final response = await _dio.get(
+      '/chat/groups/$groupId/messages',
+      queryParameters: {
+        'page': page,
+        'limit': limit,
+      },
+    );
+    return ChatHistoryResponse.fromJson(response.data as Map<String, dynamic>);
   }
 }

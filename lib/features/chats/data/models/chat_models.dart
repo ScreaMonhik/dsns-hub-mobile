@@ -46,6 +46,16 @@ abstract class ChatSender with _$ChatSender {
 }
 
 @freezed
+abstract class ChatReadReceipt with _$ChatReadReceipt {
+  const factory ChatReadReceipt({
+    required String userId,
+    required DateTime readAt,
+  }) = _ChatReadReceipt;
+
+  factory ChatReadReceipt.fromJson(Map<String, dynamic> json) => _$ChatReadReceiptFromJson(json);
+}
+
+@freezed
 abstract class ChatMessage with _$ChatMessage {
   const factory ChatMessage({
     required String id,
@@ -56,6 +66,7 @@ abstract class ChatMessage with _$ChatMessage {
     required String senderId,
     required String groupId,
     ChatSender? sender,
+    @Default([]) List<ChatReadReceipt> readReceipts,
   }) = _ChatMessage;
 
   factory ChatMessage.fromJson(Map<String, dynamic> json) => _$ChatMessageFromJson(json);
@@ -69,6 +80,7 @@ abstract class ChatGroup with _$ChatGroup {
     String? avatarUrl,
     String? departmentId,
     required DateTime createdAt,
+    @Default(0) int unreadCount,
     ChatDepartment? department,
     @Default([]) List<ChatMember> members,
     @JsonKey(name: '_count') ChatCount? count,
@@ -79,10 +91,22 @@ abstract class ChatGroup with _$ChatGroup {
 }
 
 @freezed
+abstract class ChatPaginationMeta with _$ChatPaginationMeta {
+  const factory ChatPaginationMeta({
+    required int total,
+    required int page,
+    required int lastPage,
+    required int limit,
+  }) = _ChatPaginationMeta;
+
+  factory ChatPaginationMeta.fromJson(Map<String, dynamic> json) => _$ChatPaginationMetaFromJson(json);
+}
+
+@freezed
 abstract class ChatHistoryResponse with _$ChatHistoryResponse {
   const factory ChatHistoryResponse({
     required List<ChatMessage> data,
-    required Map<String, dynamic> meta,
+    required ChatPaginationMeta meta,
   }) = _ChatHistoryResponse;
 
   factory ChatHistoryResponse.fromJson(Map<String, dynamic> json) => _$ChatHistoryResponseFromJson(json);
