@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../features/auth/presentation/providers/auth_provider.dart';
 import '../../features/home/presentation/home_shell_screen.dart';
+import '../../features/auth/presentation/screens/login_screen.dart';
+import '../../features/polls/presentation/screens/polls_screen.dart';
+import '../../features/polls/presentation/screens/poll_detail_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authProvider);
@@ -23,18 +26,7 @@ final routerProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(
         path: '/login',
-        builder: (context, state) => Scaffold(
-          body: Center(
-            child: ElevatedButton(
-              onPressed: () {
-                // TODO: Реалізувати виклик API логіну. 
-                // Поки що це мок для перевірки навігації.
-                ref.read(authProvider.notifier).loginUser('mock_jwt_token');
-              },
-              child: const Text('Login Mock'),
-            ),
-          ),
-        ),
+        builder: (context, state) => const LoginScreen(),
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {
@@ -69,7 +61,16 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: '/polls',
-                builder: (context, state) => const Scaffold(body: Center(child: Text('Опитування'))),
+                builder: (context, state) => const PollsScreen(),
+                routes: [
+                  GoRoute(
+                    path: ':id',
+                    builder: (context, state) {
+                      final pollId = state.pathParameters['id']!;
+                      return PollDetailScreen(pollId: pollId);
+                    },
+                  ),
+                ],
               ),
             ],
           ),
