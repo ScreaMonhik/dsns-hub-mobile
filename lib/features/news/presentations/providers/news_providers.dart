@@ -49,6 +49,37 @@ class NewsListNotifier extends AsyncNotifier<List<NewsArticle>> {
   }
 }
 
+// Провайдер для взаємодії з новинами (лайки, дизлайки, додавання коментарів)
+final Provider<NewsInteractionController> newsInteractionProvider = Provider<NewsInteractionController>((ref) {
+  return NewsInteractionController(ref);
+});
+
+class NewsInteractionController {
+  final Ref _ref;
+
+  NewsInteractionController(this._ref);
+
+  Future<void> vote(String newsId, String voteType) async {
+    try {
+      await _ref.read(newsRepositoryProvider).vote(newsId, voteType);
+      _ref.invalidate(newsListProvider);
+      _ref.invalidate(newsDetailProvider(newsId));
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  Future<void> addComment(String newsId, String content) async {
+    try {
+      await _ref.read(newsRepositoryProvider).addComment(newsId, content);
+      _ref.invalidate(newsListProvider);
+      _ref.invalidate(newsDetailProvider(newsId));
+    } catch (e) {
+      throw Exception('Не вдалося додати коментар: $e');
+    }
+  }
+}
+
 final newsListProvider = AsyncNotifierProvider<NewsListNotifier, List<NewsArticle>>(
   () => NewsListNotifier(),
 );

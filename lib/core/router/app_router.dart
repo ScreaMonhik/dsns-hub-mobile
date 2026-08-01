@@ -58,7 +58,11 @@ final routerProvider = Provider<GoRouter>((ref) {
                     path: ':id',
                     builder: (context, state) {
                       final newsId = state.pathParameters['id']!;
-                      return NewsDetailScreen(newsId: newsId);
+                      final scrollToComments = state.uri.queryParameters['comments'] == 'true';
+                      return NewsDetailScreen(
+                        newsId: newsId, 
+                        scrollToComments: scrollToComments,
+                      );
                     },
                   ),
                 ],

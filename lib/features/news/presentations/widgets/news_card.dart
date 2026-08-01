@@ -6,11 +6,17 @@ import 'tiptap_renderer.dart';
 class NewsCard extends StatelessWidget {
   final NewsArticle article;
   final VoidCallback onTap;
+  final VoidCallback onLike;
+  final VoidCallback onDislike;
+  final VoidCallback onCommentTap;
 
   const NewsCard({
     super.key,
     required this.article,
     required this.onTap,
+    required this.onLike,
+    required this.onDislike,
+    required this.onCommentTap,
   });
 
   @override
@@ -96,48 +102,92 @@ class NewsCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
                   Divider(color: theme.colorScheme.outlineVariant),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 4),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Row(
                         children: [
-                          CircleAvatar(
-                            radius: 12,
-                            backgroundColor: theme.colorScheme.secondaryContainer,
-                            backgroundImage: article.author.avatarUrl != null 
-                              ? NetworkImage(article.author.avatarUrl!) 
-                              : null,
-                            child: article.author.avatarUrl == null 
-                              ? Text(
-                                  article.author.firstName[0], 
-                                  style: const TextStyle(fontSize: 12),
-                                )
-                              : null,
+                          _buildActionButton(
+                            context: context,
+                            icon: article.votes.any((v) => v.voteType == 'UPVOTE') 
+                                ? Icons.thumb_up 
+                                : Icons.thumb_up_alt_outlined,
+                            label: '${article.upvotes > 0 ? article.upvotes : (article.count?.likes ?? 0)}',
+                            onTap: onLike,
+                            isActive: article.votes.any((v) => v.voteType == 'UPVOTE'),
+                            activeColor: Colors.green.shade600,
                           ),
-                          const SizedBox(width: 8),
-                          Text(
-                            '${article.author.firstName} ${article.author.lastName}',
-                            style: theme.textTheme.labelMedium?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
+                          const SizedBox(width: 16),
+                          _buildActionButton(
+                            context: context,
+                            icon: article.votes.any((v) => v.voteType == 'DOWNVOTE') 
+                                ? Icons.thumb_down 
+                                : Icons.thumb_down_alt_outlined,
+                            label: '${article.downvotes > 0 ? article.downvotes : (article.count?.dislikes ?? 0)}',
+                            onTap: onDislike,
+                            isActive: article.votes.any((v) => v.voteType == 'DOWNVOTE'),
+                            activeColor: Colors.red.shade600,
                           ),
                         ],
                       ),
-                      Row(
-                        children: [
-                          Icon(Icons.thumb_up_alt_outlined, size: 16, color: theme.colorScheme.outline),
-                          const SizedBox(width: 4),
-                          Text('${article.count?.likes ?? 0}', style: theme.textTheme.labelMedium),
-                          const SizedBox(width: 12),
-                          Icon(Icons.comment_outlined, size: 16, color: theme.colorScheme.outline),
-                          const SizedBox(width: 4),
-                          Text('${article.count?.comments ?? 0}', style: theme.textTheme.labelMedium),
-                        ],
+                      _buildActionButton(
+                        context: context,
+                        icon: Icons.comment_outlined,
+                        label: '${article.count?.comments ?? 0}',
+                        onTap: onCommentTap,
+                        isActive: false,
+                        activeColor: theme.colorScheme.primary,
                       ),
                     ],
                   ),
                 ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionButton({
+    required BuildContext context,
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    required bool isActive,
+    required Color activeColor,
+  }) {
+    final theme = Theme.of(context);
+    final displayColor = isActive ? activeColor : theme.colorScheme.onSurfaceVariant;
+    
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+        decoration: BoxDecoration(
+          color: isActive 
+              ? activeColor.withValues(alpha: 0.1) 
+              : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+          borderRadius: BorderRadius.circular(20),
+          border: isActive 
+              ? Border.all(color: activeColor.withValues(alpha: 0.3)) 
+              : Border.all(color: Colors.transparent),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              icon, 
+              size: 20, 
+              color: displayColor,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: displayColor,
+                fontWeight: FontWeight.bold,
               ),
             ),
           ],

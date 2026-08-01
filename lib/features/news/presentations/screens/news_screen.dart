@@ -69,9 +69,28 @@ class _NewsScreenState extends ConsumerState<NewsScreen> {
                 final article = articles[index];
                 return NewsCard(
                   article: article,
-                  onTap: () {
-                    // Requires context.push from go_router
-                    context.push('/news/${article.id}');
+                  onTap: () => context.push('/news/${article.id}'),
+                  onLike: () async {
+                    try {
+                      await ref.read(newsInteractionProvider).vote(article.id, 'UPVOTE');
+                    } catch (e) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: Colors.red));
+                      }
+                    }
+                  },
+                  onDislike: () async {
+                    try {
+                      await ref.read(newsInteractionProvider).vote(article.id, 'DOWNVOTE');
+                    } catch (e) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: Colors.red));
+                      }
+                    }
+                  },
+                  onCommentTap: () {
+                    // Переходимо до новини і одразу скролимо до коментарів
+                    context.push('/news/${article.id}?comments=true');
                   },
                 );
               },

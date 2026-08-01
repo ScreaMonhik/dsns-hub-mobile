@@ -37,16 +37,38 @@ class NewsRepository {
   }
 
   Future<void> vote(String newsId, String voteType) async {
-    await _dio.post(
-      '/news/$newsId/vote',
-      data: {'voteType': voteType},
-    );
+    try {
+      await _dio.post(
+        '/news/$newsId/vote',
+        data: {'voteType': voteType},
+      );
+    } on DioException catch (e) {
+      if (e.response != null && e.response?.data != null) {
+        final data = e.response?.data;
+        final message = (data is Map && data['message'] != null)
+            ? (data['message'] is List ? data['message'].join(', ') : data['message'])
+            : 'Помилка валідації сервера';
+        throw Exception(message.toString());
+      }
+      throw Exception('Помилка з\'єднання: ${e.message}');
+    }
   }
 
   Future<void> addComment(String newsId, String content) async {
-    await _dio.post(
-      '/news/$newsId/comments',
-      data: {'content': content},
-    );
+    try {
+      await _dio.post(
+        '/news/$newsId/comments',
+        data: {'content': content},
+      );
+    } on DioException catch (e) {
+      if (e.response != null && e.response?.data != null) {
+        final data = e.response?.data;
+        final message = (data is Map && data['message'] != null)
+            ? (data['message'] is List ? data['message'].join(', ') : data['message'])
+            : 'Помилка валідації сервера';
+        throw Exception(message.toString());
+      }
+      throw Exception('Помилка з\'єднання: ${e.message}');
+    }
   }
 }
