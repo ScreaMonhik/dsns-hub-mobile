@@ -35,8 +35,7 @@ class _PollsScreenState extends ConsumerState<PollsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Опитування', style: TextStyle(fontWeight: FontWeight.bold)),
-        centerTitle: true,
+        title: const Text('Опитування'),
         actions: const [UserProfileButton()],
       ),
       body: Column(

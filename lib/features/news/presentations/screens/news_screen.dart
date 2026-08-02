@@ -49,8 +49,7 @@ class _NewsScreenState extends ConsumerState<NewsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Стрічка новин', style: TextStyle(fontWeight: FontWeight.bold)),
-        centerTitle: true,
+        title: const Text('Новини'),
         actions: const [UserProfileButton()],
       ),
       body: Column(

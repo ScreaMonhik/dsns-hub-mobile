@@ -21,17 +21,24 @@ class DsnsHubApp extends ConsumerWidget {
       themeMode: themeMode,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF1E40AF), // Сучасний глибокий синій
+          seedColor: const Color(0xFF1E40AF),
           brightness: Brightness.light,
-          surface: const Color(0xFFF8FAFC), // Світло-сірий фон екранів
-          surfaceContainer: Colors.white, // Білі картки
+          surface: const Color(0xFFF8FAFC),
+          surfaceContainer: Colors.white,
         ),
         useMaterial3: true,
         appBarTheme: const AppBarTheme(
-          centerTitle: true,
+          centerTitle: false, // Вирівнювання по лівому краю
           elevation: 0,
           scrolledUnderElevation: 0,
           backgroundColor: Colors.transparent,
+          surfaceTintColor: Colors.transparent,
+          titleTextStyle: TextStyle(
+            fontSize: 28,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -1.0,
+            color: Color(0xFF0F172A),
+          ),
         ),
       ),
       darkTheme: ThemeData(
@@ -48,11 +55,17 @@ class DsnsHubApp extends ConsumerWidget {
         useMaterial3: true,
         scaffoldBackgroundColor: Colors.black,
         appBarTheme: const AppBarTheme(
-          centerTitle: true,
+          centerTitle: false, // Вирівнювання по лівому краю
           elevation: 0,
           scrolledUnderElevation: 0,
           backgroundColor: Colors.black,
           surfaceTintColor: Colors.transparent,
+          titleTextStyle: TextStyle(
+            fontSize: 28,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -1.0,
+            color: Colors.white,
+          ),
         ),
         navigationBarTheme: NavigationBarThemeData(
           backgroundColor: const Color(0xFF0A0A0A), // Трохи світліший за фон екрану

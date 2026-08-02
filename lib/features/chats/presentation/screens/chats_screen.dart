@@ -18,8 +18,7 @@ class ChatsScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        title: const Text('Чати', style: TextStyle(fontWeight: FontWeight.bold)),
-        centerTitle: true,
+        title: const Text('Чати'),
         actions: const [UserProfileButton()],
       ),
       body: chatsState.when(
