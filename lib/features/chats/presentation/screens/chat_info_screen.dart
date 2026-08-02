@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import '../providers/chat_providers.dart';
 import '../../../../core/presentation/widgets/auth_network_image.dart';
+import '../../../auth/providers/auth_provider.dart';
 
 class ChatInfoScreen extends ConsumerStatefulWidget {
   final String groupId;

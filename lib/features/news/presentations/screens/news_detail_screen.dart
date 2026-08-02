@@ -5,6 +5,7 @@ import '../providers/news_providers.dart';
 import '../widgets/tiptap_renderer.dart';
 import '../../data/models/news_models.dart';
 import '../../../../core/presentation/widgets/auth_network_image.dart';
+import '../../../auth/providers/auth_provider.dart';
 
 class NewsDetailScreen extends ConsumerStatefulWidget {
   final String newsId;
@@ -69,6 +70,7 @@ class _NewsDetailScreenState extends ConsumerState<NewsDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final newsState = ref.watch(newsDetailProvider(widget.newsId));
+    final currentUserId = ref.watch(currentUserIdProvider);
     final theme = Theme.of(context);
 
     return Scaffold(
@@ -166,11 +168,11 @@ class _NewsDetailScreenState extends ConsumerState<NewsDetailScreen> {
                       Row(
                         children: [
                           _buildInteractionButton(
-                            icon: article.votes.any((v) => v.voteType == 'UPVOTE') 
+                            icon: article.votes.any((v) => v.voteType == 'UPVOTE' && v.userId == currentUserId) 
                                 ? Icons.thumb_up 
                                 : Icons.thumb_up_alt_outlined,
                             label: '${article.upvotes > 0 ? article.upvotes : (article.count?.likes ?? 0)}',
-                            isActive: article.votes.any((v) => v.voteType == 'UPVOTE'),
+                            isActive: article.votes.any((v) => v.voteType == 'UPVOTE' && v.userId == currentUserId),
                             activeColor: Colors.green.shade600,
                             onTap: () async {
                               try {
@@ -184,11 +186,11 @@ class _NewsDetailScreenState extends ConsumerState<NewsDetailScreen> {
                           ),
                           const SizedBox(width: 16),
                           _buildInteractionButton(
-                            icon: article.votes.any((v) => v.voteType == 'DOWNVOTE') 
+                            icon: article.votes.any((v) => v.voteType == 'DOWNVOTE' && v.userId == currentUserId) 
                                 ? Icons.thumb_down 
                                 : Icons.thumb_down_alt_outlined,
                             label: '${article.downvotes > 0 ? article.downvotes : (article.count?.dislikes ?? 0)}',
-                            isActive: article.votes.any((v) => v.voteType == 'DOWNVOTE'),
+                            isActive: article.votes.any((v) => v.voteType == 'DOWNVOTE' && v.userId == currentUserId),
                             activeColor: Colors.red.shade600,
                             onTap: () async {
                               try {

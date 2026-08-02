@@ -10,6 +10,7 @@ class NewsCard extends StatelessWidget {
   final VoidCallback onLike;
   final VoidCallback onDislike;
   final VoidCallback onCommentTap;
+  final String? currentUserId;
 
   const NewsCard({
     super.key,
@@ -18,6 +19,7 @@ class NewsCard extends StatelessWidget {
     required this.onLike,
     required this.onDislike,
     required this.onCommentTap,
+    this.currentUserId,
   });
 
   @override
@@ -107,23 +109,23 @@ class NewsCard extends StatelessWidget {
                         children: [
                           _buildActionButton(
                             context: context,
-                            icon: article.votes.any((v) => v.voteType == 'UPVOTE') 
+                            icon: article.votes.any((v) => v.voteType == 'UPVOTE' && v.userId == currentUserId) 
                                 ? Icons.thumb_up 
                                 : Icons.thumb_up_alt_outlined,
                             label: '${article.upvotes > 0 ? article.upvotes : (article.count?.likes ?? 0)}',
                             onTap: onLike,
-                            isActive: article.votes.any((v) => v.voteType == 'UPVOTE'),
+                            isActive: article.votes.any((v) => v.voteType == 'UPVOTE' && v.userId == currentUserId),
                             activeColor: Colors.green.shade600,
                           ),
                           const SizedBox(width: 16),
                           _buildActionButton(
                             context: context,
-                            icon: article.votes.any((v) => v.voteType == 'DOWNVOTE') 
+                            icon: article.votes.any((v) => v.voteType == 'DOWNVOTE' && v.userId == currentUserId) 
                                 ? Icons.thumb_down 
                                 : Icons.thumb_down_alt_outlined,
                             label: '${article.downvotes > 0 ? article.downvotes : (article.count?.dislikes ?? 0)}',
                             onTap: onDislike,
-                            isActive: article.votes.any((v) => v.voteType == 'DOWNVOTE'),
+                            isActive: article.votes.any((v) => v.voteType == 'DOWNVOTE' && v.userId == currentUserId),
                             activeColor: Colors.red.shade600,
                           ),
                         ],

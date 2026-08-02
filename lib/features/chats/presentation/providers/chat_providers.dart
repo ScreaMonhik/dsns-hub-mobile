@@ -7,23 +7,6 @@ import '../../data/repositories/chat_repository.dart';
 import '../../data/services/chat_socket_service.dart';
 import '../../../auth/providers/auth_provider.dart';
 
-final currentUserIdProvider = Provider<String?>((ref) {
-  final token = ref.watch(currentTokenProvider);
-  if (token == null || token.isEmpty) return null;
-  
-  try {
-    final parts = token.split('.');
-    if (parts.length != 3) return null;
-    
-    final payload = base64Url.normalize(parts[1]);
-    final decoded = json.decode(utf8.decode(base64Url.decode(payload)));
-    
-    return decoded['id'] ?? decoded['sub']; 
-  } catch (e) {
-    return null;
-  }
-});
-
 final chatMembersProvider = FutureProvider.family<List<ChatMember>, String>((ref, groupId) async {
   return ref.watch(chatRepositoryProvider).getGroupMembers(groupId);
 });

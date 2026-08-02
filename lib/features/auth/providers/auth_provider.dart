@@ -1,9 +1,27 @@
+import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../../core/storage/secure_storage_provider.dart';
 import '../data/repositories/auth_repository.dart';
 
 final currentTokenProvider = StateProvider<String?>((ref) => null);
+
+final currentUserIdProvider = Provider<String?>((ref) {
+  final token = ref.watch(currentTokenProvider);
+  if (token == null || token.isEmpty) return null;
+  
+  try {
+    final parts = token.split('.');
+    if (parts.length != 3) return null;
+    
+    final payload = base64Url.normalize(parts[1]);
+    final decoded = json.decode(utf8.decode(base64Url.decode(payload)));
+    
+    return decoded['id'] ?? decoded['sub']; 
+  } catch (e) {
+    return null;
+  }
+});
 
 final authStateProvider = StateNotifierProvider<AuthNotifier, AsyncValue<bool>>((ref) {
   return AuthNotifier(

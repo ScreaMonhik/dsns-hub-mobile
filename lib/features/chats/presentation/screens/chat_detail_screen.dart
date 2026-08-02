@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../providers/chat_providers.dart';
 import '../../data/models/chat_models.dart';
 import '../../../../core/presentation/widgets/auth_network_image.dart';
+import '../../../auth/providers/auth_provider.dart';
 
 class ChatDetailScreen extends ConsumerStatefulWidget {
   final String groupId;

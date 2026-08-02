@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../providers/chat_providers.dart';
 import '../../../../core/presentation/widgets/auth_network_image.dart';
 import '../../../profile/presentation/widgets/user_profile_button.dart';
+import '../../../auth/providers/auth_provider.dart';
 
 class ChatsScreen extends ConsumerWidget {
   const ChatsScreen({super.key});

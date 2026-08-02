@@ -6,6 +6,7 @@ import 'package:dsns_hub/core/presentation/widgets/filter_choice_chip.dart';
 import '../providers/news_providers.dart';
 import '../widgets/news_card.dart';
 import '../../../profile/presentation/widgets/user_profile_button.dart';
+import '../../../auth/providers/auth_provider.dart';
 
 class NewsScreen extends ConsumerStatefulWidget {
   const NewsScreen({super.key});
@@ -44,6 +45,7 @@ class _NewsScreenState extends ConsumerState<NewsScreen> {
   @override
   Widget build(BuildContext context) {
     final newsState = ref.watch(newsListProvider);
+    final currentUserId = ref.watch(currentUserIdProvider);
 
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
@@ -77,6 +79,7 @@ class _NewsScreenState extends ConsumerState<NewsScreen> {
                       final article = articles[index];
                       return NewsCard(
                         article: article,
+                        currentUserId: currentUserId,
                         onTap: () => context.push('/news/${article.id}'),
                         onLike: () async {
                           try {
