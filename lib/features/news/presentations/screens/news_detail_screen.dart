@@ -268,21 +268,13 @@ class _NewsDetailScreenState extends ConsumerState<NewsDetailScreen> {
     
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: BoxDecoration(
-          color: isActive 
-              ? activeColor.withValues(alpha: 0.1) 
-              : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(20),
-          border: isActive 
-              ? Border.all(color: activeColor.withValues(alpha: 0.3)) 
-              : Border.all(color: Colors.transparent),
-        ),
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
         child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 22, color: displayColor),
+            Icon(icon, size: 24, color: displayColor),
             const SizedBox(width: 8),
             Text(
               label,

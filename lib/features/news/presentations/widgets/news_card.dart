@@ -173,23 +173,15 @@ class NewsCard extends StatelessWidget {
     
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-        decoration: BoxDecoration(
-          color: isActive 
-              ? activeColor.withValues(alpha: 0.1) 
-              : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-          borderRadius: BorderRadius.circular(20),
-          border: isActive 
-              ? Border.all(color: activeColor.withValues(alpha: 0.3)) 
-              : Border.all(color: Colors.transparent),
-        ),
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
         child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
               icon, 
-              size: 20, 
+              size: 22, 
               color: displayColor,
             ),
             const SizedBox(width: 6),
