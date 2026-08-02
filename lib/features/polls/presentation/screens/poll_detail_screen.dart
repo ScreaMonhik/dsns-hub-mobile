@@ -114,19 +114,19 @@ class _PollDetailScreenState extends ConsumerState<PollDetailScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
-                      color: Colors.orange.shade50,
+                      color: Theme.of(context).colorScheme.tertiaryContainer,
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: Colors.orange.shade200),
+                      border: Border.all(color: Theme.of(context).colorScheme.tertiary.withValues(alpha: 0.3)),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.timer_outlined, size: 16, color: Colors.orange.shade700),
+                        Icon(Icons.timer_outlined, size: 16, color: Theme.of(context).colorScheme.onTertiaryContainer),
                         const SizedBox(width: 6),
                         Text(
                           'До ${DateFormat('dd.MM.yyyy HH:mm').format(poll.expiresAt!.toLocal())}',
                           style: TextStyle(
-                            color: Colors.orange.shade700,
+                            color: Theme.of(context).colorScheme.onTertiaryContainer,
                             fontWeight: FontWeight.w600,
                             fontSize: 13,
                           ),
@@ -145,7 +145,7 @@ class _PollDetailScreenState extends ConsumerState<PollDetailScreen> {
               const SizedBox(height: 12),
               Text(
                 poll.description!,
-                style: TextStyle(fontSize: 16, height: 1.5, color: Colors.grey.shade700),
+                style: TextStyle(fontSize: 16, height: 1.5, color: Theme.of(context).colorScheme.onSurfaceVariant),
               ),
             ],
             const SizedBox(height: 32),
@@ -163,12 +163,12 @@ class _PollDetailScreenState extends ConsumerState<PollDetailScreen> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
                   'Всього голосів: ${poll.totalVotes}',
-                  style: TextStyle(color: Colors.grey.shade800, fontWeight: FontWeight.w600),
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontWeight: FontWeight.w600),
                 ),
               ),
             ),
@@ -257,6 +257,7 @@ class _PollDetailScreenState extends ConsumerState<PollDetailScreen> {
   }
 
   Widget _buildOptionCard(Poll poll, PollOption option, bool isVotingActive, bool isClosed, int maxVotes) {
+    final theme = Theme.of(context);
     final isSelected = isVotingActive 
         ? _pendingOptionId == option.id 
         : poll.userVotedOptionId == option.id;
@@ -269,18 +270,18 @@ class _PollDetailScreenState extends ConsumerState<PollDetailScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.colorScheme.surfaceContainer,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           if (isWinner)
             BoxShadow(
-              color: Colors.green.shade100.withValues(alpha: 0.5),
+              color: Colors.green.withValues(alpha: 0.1),
               blurRadius: 8,
               offset: const Offset(0, 4),
             )
           else if (isSelected)
             BoxShadow(
-              color: Colors.blue.shade100.withValues(alpha: 0.5),
+              color: theme.colorScheme.primary.withValues(alpha: 0.1),
               blurRadius: 8,
               offset: const Offset(0, 4),
             )
@@ -289,7 +290,9 @@ class _PollDetailScreenState extends ConsumerState<PollDetailScreen> {
       foregroundDecoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isWinner ? Colors.green.shade500 : (isSelected ? Colors.blue.shade600 : Colors.grey.shade300),
+          color: isWinner 
+              ? Colors.green.shade500 
+              : (isSelected ? theme.colorScheme.primary : theme.colorScheme.outlineVariant),
           width: (isWinner || isSelected) ? 2 : 1,
         ),
       ),
@@ -309,7 +312,9 @@ class _PollDetailScreenState extends ConsumerState<PollDetailScreen> {
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 600),
                     curve: Curves.easeOutCubic,
-                    color: isWinner ? Colors.green.shade50 : (isSelected ? Colors.blue.shade50 : Colors.grey.shade100),
+                    color: isWinner 
+                        ? Colors.green.withValues(alpha: 0.1) 
+                        : (isSelected ? theme.colorScheme.primary.withValues(alpha: 0.1) : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)),
                   ),
                 ),
               ),
@@ -320,7 +325,7 @@ class _PollDetailScreenState extends ConsumerState<PollDetailScreen> {
                     if (!isClosed) ...[
                       Icon(
                         isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
-                        color: isSelected ? Colors.blue.shade600 : Colors.grey.shade400,
+                        color: isSelected ? theme.colorScheme.primary : theme.colorScheme.outline,
                       ),
                       const SizedBox(width: 16),
                     ],
@@ -330,7 +335,7 @@ class _PollDetailScreenState extends ConsumerState<PollDetailScreen> {
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: (isWinner || isSelected) ? FontWeight.w700 : FontWeight.w500,
-                          color: Colors.black87,
+                          color: theme.colorScheme.onSurface,
                         ),
                       ),
                     ),
@@ -343,7 +348,7 @@ class _PollDetailScreenState extends ConsumerState<PollDetailScreen> {
                             Icon(Icons.emoji_events, color: Colors.green.shade600, size: 24),
                             const SizedBox(width: 10),
                           ] else if (isClosed && isSelected) ...[
-                            Icon(Icons.check_circle, color: Colors.blue.shade600, size: 20),
+                            Icon(Icons.check_circle, color: theme.colorScheme.primary, size: 20),
                             const SizedBox(width: 10),
                           ],
                           Column(
@@ -354,12 +359,14 @@ class _PollDetailScreenState extends ConsumerState<PollDetailScreen> {
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 16,
-                                  color: isWinner ? Colors.green.shade700 : (isSelected ? Colors.blue.shade700 : Colors.black87),
+                                  color: isWinner 
+                                      ? Colors.green.shade600 
+                                      : (isSelected ? theme.colorScheme.primary : theme.colorScheme.onSurface),
                                 ),
                               ),
                               Text(
                                 '${option.votes} чол.',
-                                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                                style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurfaceVariant),
                               ),
                             ],
                           ),

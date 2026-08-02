@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../providers/profile_provider.dart';
 import '../../../auth/providers/auth_provider.dart';
 import '../../../../core/presentation/widgets/auth_network_image.dart';
+import '../../../../core/theme/theme_provider.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -122,6 +123,29 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 _buildInfoTile(context, Icons.email_outlined, 'Email', profile.email),
                 const SizedBox(height: 16),
                 _buildInfoTile(context, Icons.work_outline, 'Роль', profile.role),
+                const SizedBox(height: 32),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Налаштування додатку', 
+                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: SegmentedButton<ThemeMode>(
+                    segments: const [
+                      ButtonSegment(value: ThemeMode.system, icon: Icon(Icons.brightness_auto), label: Text('Системна')),
+                      ButtonSegment(value: ThemeMode.light, icon: Icon(Icons.light_mode), label: Text('Світла')),
+                      ButtonSegment(value: ThemeMode.dark, icon: Icon(Icons.dark_mode), label: Text('Темна')),
+                    ],
+                    selected: {ref.watch(themeProvider)},
+                    onSelectionChanged: (Set<ThemeMode> newSelection) {
+                      ref.read(themeProvider.notifier).setTheme(newSelection.first);
+                    },
+                  ),
+                ),
                 const SizedBox(height: 48),
                 SizedBox(
                   width: double.infinity,

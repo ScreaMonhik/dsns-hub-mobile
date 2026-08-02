@@ -173,6 +173,7 @@ lib/
           chat_providers.dart
         screens/
           chat_detail_screen.dart
+          chat_info_screen.dart
           chats_screen.dart
     home/
       presentation/
@@ -2666,6 +2667,252 @@ class AuthRepository {
 }
 </file>
 
+<file path="lib/features/chats/presentation/screens/chat_info_screen.dart">
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
+import '../providers/chat_providers.dart';
+import '../../../../core/presentation/widgets/auth_network_image.dart';
+import '../../../auth/providers/auth_provider.dart';
+
+class ChatInfoScreen extends ConsumerStatefulWidget {
+  final String groupId;
+
+  const ChatInfoScreen({super.key, required this.groupId});
+
+  @override
+  ConsumerState<ChatInfoScreen> createState() => _ChatInfoScreenState();
+}
+
+class _ChatInfoScreenState extends ConsumerState<ChatInfoScreen> {
+  final _picker = ImagePicker();
+  bool _isUploading = false;
+
+  Future<void> _pickAndUploadImage() async {
+    try {
+      final XFile? image = await _picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 85,
+      );
+      
+      if (image != null) {
+        setState(() => _isUploading = true);
+        await ref.read(chatsListProvider.notifier).updateGroupAvatar(widget.groupId, image.path);
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Фото чату успішно оновлено'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Помилка завантаження фото: ${e.toString().replaceAll("Exception: ", "")}'), 
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isUploading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final groupState = ref.watch(chatsListProvider);
+    final membersState = ref.watch(chatMembersProvider(widget.groupId));
+    final currentUserId = ref.watch(currentUserIdProvider);
+    
+    final group = groupState.value?.where((g) => g.id == widget.groupId).firstOrNull;
+    final groupName = group?.name ?? 'Інформація про чат';
+    
+    // Перевірка прав адміністратора
+    bool isAdmin = false;
+    if (membersState.value != null && currentUserId != null) {
+      final currentUserMember = membersState.value!.where((m) => m.userId == currentUserId).firstOrNull;
+      isAdmin = currentUserMember?.isAdmin ?? false;
+    }
+
+    return Scaffold(
+      backgroundColor: theme.colorScheme.surface,
+      body: CustomScrollView(
+        slivers: [
+          SliverAppBar(
+            expandedHeight: 250,
+            pinned: true,
+            centerTitle: true,
+            flexibleSpace: FlexibleSpaceBar(
+              centerTitle: true,
+              // Збільшуємо горизонтальні відступи, щоб багаторядковий текст фізично не міг перекрити кнопку справа
+              titlePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              title: IgnorePointer(
+                child: Text(
+                  groupName,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    shadows: [
+                      Shadow(color: Colors.black87, blurRadius: 8, offset: Offset(0, 2)),
+                      Shadow(color: Colors.black87, blurRadius: 16, offset: Offset(0, 4)),
+                    ],
+                  ),
+                ),
+              ),
+              background: Stack(
+                fit: StackFit.expand,
+                children: [
+                  group?.avatarUrl != null
+                      ? AuthNetworkImage(
+                          imageUrl: group!.avatarUrl!,
+                          fit: BoxFit.cover,
+                        )
+                      : Container(
+                          color: theme.colorScheme.primaryContainer,
+                          alignment: Alignment.center,
+                          child: Text(
+                            groupName.isNotEmpty ? groupName[0].toUpperCase() : '?',
+                            style: TextStyle(
+                              fontSize: 80,
+                              color: theme.colorScheme.onPrimaryContainer,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                  if (group?.avatarUrl != null)
+                    const DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.transparent,
+                            Colors.black26,
+                            Colors.black87,
+                          ],
+                          stops: [0.4, 0.7, 1.0],
+                        ),
+                      ),
+                    ),
+                  if (_isUploading)
+                    const Center(
+                      child: CircularProgressIndicator(color: Colors.white),
+                    )
+                  else if (isAdmin)
+                    Positioned(
+                      bottom: 24,
+                      right: 24,
+                      child: Material(
+                        color: theme.colorScheme.primary,
+                        shape: const CircleBorder(),
+                        elevation: 6,
+                        child: InkWell(
+                          onTap: _pickAndUploadImage,
+                          customBorder: const CircleBorder(),
+                          child: const Padding(
+                            padding: EdgeInsets.all(12.0),
+                            child: Icon(Icons.camera_alt, color: Colors.white, size: 24),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+              child: Text(
+                'Учасники',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: theme.colorScheme.primary,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+          membersState.when(
+            data: (members) {
+              if (members.isEmpty) {
+                return const SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: Center(child: Text('Немає учасників')),
+                  ),
+                );
+              }
+              
+              return SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final member = members[index];
+                    final user = member.user;
+                    final fullName = user != null ? '${user.firstName} ${user.lastName}' : 'Невідомий користувач';
+                    
+                    return ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: theme.colorScheme.secondaryContainer,
+                        child: user?.avatarUrl != null
+                            ? ClipOval(
+                                child: AuthNetworkImage(
+                                  imageUrl: user!.avatarUrl!,
+                                  width: 40,
+                                  height: 40,
+                                  fit: BoxFit.cover,
+                                ),
+                              )
+                            : Text(
+                                fullName[0].toUpperCase(),
+                                style: TextStyle(
+                                  color: theme.colorScheme.onSecondaryContainer,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                      ),
+                      title: Text(
+                        fullName,
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      subtitle: member.isAdmin 
+                          ? Text('Адміністратор', style: TextStyle(color: theme.colorScheme.primary)) 
+                          : null,
+                    );
+                  },
+                  childCount: members.length,
+                ),
+              );
+            },
+            loading: () => const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.all(32.0),
+                child: Center(
+                  child: CircularProgressIndicator(),
+                ),
+              ),
+            ),
+            error: (err, _) => SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Center(child: Text('Помилка: $err')),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+</file>
+
 <file path="lib/features/chats/data/models/chat_models.dart">
 import 'package:freezed_annotation/freezed_annotation.dart';
 
@@ -2685,9 +2932,13 @@ abstract class ChatDepartment with _$ChatDepartment {
 @freezed
 abstract class ChatMember with _$ChatMember {
   const factory ChatMember({
+    String? userId,
+    String? groupId,
     required bool isPinned,
     int? pinOrder,
     required bool isAdmin,
+    DateTime? joinedAt,
+    ChatSender? user,
   }) = _ChatMember;
 
   factory ChatMember.fromJson(Map<String, dynamic> json) => _$ChatMemberFromJson(json);
@@ -2783,8 +3034,10 @@ abstract class ChatHistoryResponse with _$ChatHistoryResponse {
 </file>
 
 <file path="lib/features/chats/data/repositories/chat_repository.dart">
+import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http_parser/http_parser.dart';
 import '../../../../core/network/dio_provider.dart';
 import '../models/chat_models.dart';
 
@@ -2813,64 +3066,41 @@ class ChatRepository {
     );
     return ChatHistoryResponse.fromJson(response.data as Map<String, dynamic>);
   }
-}
-</file>
 
-<file path="lib/features/auth/providers/auth_provider.dart">
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import '../../../core/storage/secure_storage_provider.dart';
-import '../data/repositories/auth_repository.dart';
-
-final currentTokenProvider = StateProvider<String?>((ref) => null);
-
-final authStateProvider = StateNotifierProvider<AuthNotifier, AsyncValue<bool>>((ref) {
-  return AuthNotifier(
-    ref.watch(authRepositoryProvider),
-    ref.watch(secureStorageProvider),
-    ref,
-  );
-});
-
-class AuthNotifier extends StateNotifier<AsyncValue<bool>> {
-  final AuthRepository _repository;
-  final FlutterSecureStorage _storage;
-  final Ref _ref;
-
-  AuthNotifier(this._repository, this._storage, this._ref) : super(const AsyncValue.loading()) {
-    _checkToken();
+  Future<List<ChatMember>> getGroupMembers(String groupId) async {
+    final response = await _dio.get('/chat/groups/$groupId/members');
+    final data = response.data as List;
+    return data.map((json) => ChatMember.fromJson(json as Map<String, dynamic>)).toList();
   }
 
-  Future<void> _checkToken() async {
-    final token = await _storage.read(key: 'jwt_token');
-    if (token != null && token.isNotEmpty) {
-      _ref.read(currentTokenProvider.notifier).state = token;
-      state = const AsyncValue.data(true);
-    } else {
-      state = const AsyncValue.data(false);
+  Future<String> uploadGroupAvatar(String groupId, String filePath) async {
+    final file = File(filePath);
+    final bytes = await file.readAsBytes();
+    
+    final fileName = filePath.split('/').last;
+    final extension = fileName.split('.').last.toLowerCase();
+    
+    String subType = 'jpeg';
+    if (extension == 'png') {
+      subType = 'png';
+    } else if (extension == 'webp') {
+      subType = 'webp';
     }
-  }
 
-  Future<void> login(String email, String password) async {
-    state = const AsyncValue.loading();
-    try {
-      final token = await _repository.login(email, password);
-      await _storage.write(key: 'jwt_token', value: token);
-      _ref.read(currentTokenProvider.notifier).state = token;
-      state = const AsyncValue.data(true);
-    } catch (e, st) {
-      state = AsyncValue.error(e, st);
-    }
-  }
+    final formData = FormData.fromMap({
+      'file': MultipartFile.fromBytes(
+        bytes,
+        filename: fileName,
+        contentType: MediaType('image', subType),
+      ),
+    });
 
-  Future<void> logout() async {
-    try {
-      await _storage.delete(key: 'jwt_token');
-    } catch (_) {
-      // Ігноруємо системні краші стораджа, щоб гарантовано змінити стейт
-    }
-    _ref.read(currentTokenProvider.notifier).state = null;
-    state = const AsyncValue.data(false);
+    final response = await _dio.post(
+      '/chat/groups/$groupId/avatar',
+      data: formData,
+    );
+    
+    return response.data['url'] as String;
   }
 }
 </file>
@@ -2966,684 +3196,6 @@ class ChatSocketService {
 }
 </file>
 
-<file path="lib/features/chats/presentation/providers/chat_providers.dart">
-import 'dart:async';
-import 'dart:convert';
-import 'package:flutter/widgets.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../data/models/chat_models.dart';
-import '../../data/repositories/chat_repository.dart';
-import '../../data/services/chat_socket_service.dart';
-import '../../../auth/providers/auth_provider.dart';
-
-final currentUserIdProvider = Provider<String?>((ref) {
-  final token = ref.watch(currentTokenProvider);
-  if (token == null || token.isEmpty) return null;
-  
-  try {
-    final parts = token.split('.');
-    if (parts.length != 3) return null;
-    
-    final payload = base64Url.normalize(parts[1]);
-    final decoded = json.decode(utf8.decode(base64Url.decode(payload)));
-    
-    return decoded['id'] ?? decoded['sub']; 
-  } catch (e) {
-    return null;
-  }
-});
-
-final chatsListProvider = AsyncNotifierProvider<ChatsListNotifier, List<ChatGroup>>(
-  () => ChatsListNotifier(),
-);
-
-class ChatsListNotifier extends AsyncNotifier<List<ChatGroup>> {
-  StreamSubscription? _newMessageSub;
-
-  @override
-  Future<List<ChatGroup>> build() async {
-    final token = ref.watch(currentTokenProvider);
-    final socket = ref.watch(chatSocketServiceProvider);
-    
-    if (token == null || token.isEmpty) {
-      socket.disconnect();
-      return [];
-    }
-
-    await socket.connect();
-
-    _newMessageSub?.cancel();
-    _newMessageSub = socket.onNewMessage.listen((msg) {
-      _updateLastMessage(msg);
-    });
-
-    ref.onDispose(() => _newMessageSub?.cancel());
-
-    final groups = await ref.watch(chatRepositoryProvider).getGroups();
-    
-    groups.sort((a, b) {
-      final aDate = a.messages.isNotEmpty ? a.messages.first.createdAt : a.createdAt;
-      final bDate = b.messages.isNotEmpty ? b.messages.first.createdAt : b.createdAt;
-      return bDate.compareTo(aDate);
-    });
-    
-    return groups;
-  }
-
-  void _updateLastMessage(ChatMessage message) {
-    if (state.value == null) return;
-    final groups = [...state.value!];
-    
-    final index = groups.indexWhere((g) => g.id == message.groupId);
-    if (index != -1) {
-      final group = groups[index];
-      final currentUserId = ref.read(currentUserIdProvider);
-      final isMine = currentUserId != null && message.senderId == currentUserId;
-      
-      groups[index] = group.copyWith(
-        messages: [message],
-        unreadCount: isMine ? group.unreadCount : group.unreadCount + 1,
-      );
-      
-      final updatedGroup = groups.removeAt(index);
-      groups.insert(0, updatedGroup);
-      
-      state = AsyncValue.data(groups);
-    }
-  }
-
-  void clearUnreadCount(String groupId) {
-    if (state.value == null) return;
-    final groups = [...state.value!];
-    final index = groups.indexWhere((g) => g.id == groupId);
-    if (index != -1) {
-      groups[index] = groups[index].copyWith(unreadCount: 0);
-      state = AsyncValue.data(groups);
-    }
-  }
-}
-
-final chatMessagesProvider = AsyncNotifierProviderFamily<ChatMessagesNotifier, List<ChatMessage>, String>(
-  () => ChatMessagesNotifier(),
-);
-
-class ChatMessagesNotifier extends FamilyAsyncNotifier<List<ChatMessage>, String> {
-  StreamSubscription? _subNew;
-  StreamSubscription? _subUpdate;
-  StreamSubscription? _subDelete;
-  StreamSubscription? _subRead;
-
-  int _currentPage = 1;
-  bool _hasMore = true;
-  bool _isFetching = false;
-  final Set<String> _pendingReadReceipts = {};
-
-  bool get hasMore => _hasMore;
-
-  @override
-  Future<List<ChatMessage>> build(String arg) async {
-    final token = ref.watch(currentTokenProvider);
-    final socket = ref.watch(chatSocketServiceProvider);
-    
-    if (token == null || token.isEmpty) {
-      return [];
-    }
-
-    await socket.connect();
-    socket.joinRoom(arg);
-
-    _setupSocketListeners(socket);
-    
-    _currentPage = 1;
-    final response = await ref.watch(chatRepositoryProvider).getMessages(arg, page: _currentPage);
-    _hasMore = response.meta.page < response.meta.lastPage;
-    
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(chatsListProvider.notifier).clearUnreadCount(arg);
-    });
-
-    return response.data.reversed.toList();
-  }
-
-  void _setupSocketListeners(ChatSocketService socket) {
-    _subNew?.cancel();
-    _subUpdate?.cancel();
-    _subDelete?.cancel();
-    _subRead?.cancel();
-
-    _subNew = socket.onNewMessage.listen((msg) {
-      if (msg.groupId == arg && state.value != null) {
-        state = AsyncValue.data([msg, ...state.value!]);
-        final currentUserId = ref.read(currentUserIdProvider);
-        if (currentUserId != null && msg.senderId != currentUserId) {
-          markAsRead([msg.id]);
-        }
-      }
-    });
-
-    _subUpdate = socket.onMessageUpdated.listen((msg) {
-      if (msg.groupId == arg && state.value != null) {
-        final msgs = state.value!.map((m) => m.id == msg.id ? msg : m).toList();
-        state = AsyncValue.data(msgs);
-      }
-    });
-
-    _subDelete = socket.onMessageDeleted.listen((msg) {
-      if (msg.groupId == arg && state.value != null) {
-        final msgs = state.value!.map((m) => m.id == msg.id ? msg : m).toList();
-        state = AsyncValue.data(msgs);
-      }
-    });
-
-    _subRead = socket.onMessagesRead.listen((data) {
-      if (data['groupId'] == arg && state.value != null) {
-        final messageIds = List<String>.from(data['messageIds'] ?? []);
-        final readByUserId = data['readByUserId'] as String;
-        
-        final msgs = state.value!.map((m) {
-          if (messageIds.contains(m.id)) {
-            final newReceipt = ChatReadReceipt(userId: readByUserId, readAt: DateTime.now());
-            return m.copyWith(readReceipts: [...m.readReceipts, newReceipt]);
-          }
-          return m;
-        }).toList();
-        
-        state = AsyncValue.data(msgs);
-      }
-    });
-
-    ref.onDispose(() {
-      _subNew?.cancel();
-      _subUpdate?.cancel();
-      _subDelete?.cancel();
-      _subRead?.cancel();
-    });
-  }
-  
-  Future<void> loadMore() async {
-    if (!_hasMore || _isFetching) return;
-
-    _isFetching = true;
-    _currentPage++;
-    
-    try {
-      final response = await ref.read(chatRepositoryProvider).getMessages(arg, page: _currentPage);
-      _hasMore = response.meta.page < response.meta.lastPage;
-      
-      final currentMessages = state.value ?? [];
-      state = AsyncValue.data([...currentMessages, ...response.data.reversed.toList()]);
-    } catch (e, st) {
-      state = AsyncValue.error(e, st);
-    } finally {
-      _isFetching = false;
-    }
-  }
-
-  void sendMessage(String content) {
-    ref.read(chatSocketServiceProvider).sendMessage(arg, content);
-  }
-
-  void deleteMessage(String messageId) {
-    ref.read(chatSocketServiceProvider).deleteMessage(messageId);
-  }
-
-  void markAsRead(List<String> messageIds) {
-    final currentUserId = ref.read(currentUserIdProvider);
-    if (currentUserId == null) return;
-    
-    final unreadIds = messageIds.where((id) => !_pendingReadReceipts.contains(id)).toList();
-    if (unreadIds.isEmpty) return;
-    
-    _pendingReadReceipts.addAll(unreadIds);
-    ref.read(chatSocketServiceProvider).markAsRead(arg, unreadIds);
-  }
-}
-</file>
-
-<file path="lib/features/chats/presentation/screens/chat_detail_screen.dart">
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
-import '../providers/chat_providers.dart';
-import '../../data/models/chat_models.dart';
-import '../../../../core/presentation/widgets/auth_network_image.dart';
-
-class ChatDetailScreen extends ConsumerStatefulWidget {
-  final String groupId;
-  const ChatDetailScreen({super.key, required this.groupId});
-
-  @override
-  ConsumerState<ChatDetailScreen> createState() => _ChatDetailScreenState();
-}
-
-class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
-  final _controller = TextEditingController();
-  final _scrollController = ScrollController();
-
-  @override
-  void initState() {
-    super.initState();
-    _scrollController.addListener(_onScroll);
-  }
-
-  @override
-  void dispose() {
-    _scrollController.removeListener(_onScroll);
-    _scrollController.dispose();
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _onScroll() {
-    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
-      ref.read(chatMessagesProvider(widget.groupId).notifier).loadMore();
-    }
-  }
-
-  void _send() {
-    final text = _controller.text.trim();
-    if (text.isEmpty) return;
-    
-    ref.read(chatMessagesProvider(widget.groupId).notifier).sendMessage(text);
-    _controller.clear();
-  }
-
-  void _showDeleteDialog(String messageId) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Видалити повідомлення?'),
-        content: const Text('Цю дію неможливо скасувати.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Скасувати')),
-          TextButton(
-            onPressed: () {
-              ref.read(chatMessagesProvider(widget.groupId).notifier).deleteMessage(messageId);
-              Navigator.pop(context);
-            },
-            child: const Text('Видалити', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final messagesState = ref.watch(chatMessagesProvider(widget.groupId));
-    final currentUserId = ref.watch(currentUserIdProvider);
-    final groupsState = ref.watch(chatsListProvider);
-    final theme = Theme.of(context);
-    
-    final groupName = groupsState.value?.where((g) => g.id == widget.groupId).firstOrNull?.name ?? 'Чат';
-
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(groupName, style: const TextStyle(fontWeight: FontWeight.bold)),
-        titleSpacing: 0,
-      ),
-      body: Column(
-              children: [
-                Expanded(
-                  child: messagesState.when(
-                    data: (messages) {
-                      if (messages.isEmpty) {
-                        return const Center(child: Text('Немає повідомлень'));
-                      }
-                      
-                      return ListView.builder(
-                        controller: _scrollController,
-                        reverse: true, // Newest at the bottom
-                        padding: const EdgeInsets.only(top: 16, bottom: 16),
-                        itemCount: messages.length + 1,
-                        itemBuilder: (context, index) {
-                          if (index == messages.length) {
-                            final hasMore = ref.read(chatMessagesProvider(widget.groupId).notifier).hasMore;
-                            return hasMore 
-                                ? const Padding(padding: EdgeInsets.all(16.0), child: Center(child: CircularProgressIndicator()))
-                                : const SizedBox.shrink();
-                          }
-
-                          final msg = messages[index];
-                          final isMe = currentUserId != null && msg.senderId == currentUserId;
-                          
-                          // Mark as read if not me and no my receipt exists
-                          if (!isMe && currentUserId != null) {
-                            final isReadByMe = msg.readReceipts.any((r) => r.userId == currentUserId);
-                            if (!isReadByMe) {
-                              WidgetsBinding.instance.addPostFrameCallback((_) {
-                                ref.read(chatMessagesProvider(widget.groupId).notifier).markAsRead([msg.id]);
-                              });
-                            }
-                          }
-                          
-                          final isReadByOthers = msg.readReceipts.any((r) => r.userId != msg.senderId);
-                          
-                          // Grouping logic for bubble styles and spacing
-                          // reverse: true means index 0 is the newest message
-                          final bool isTop = index == messages.length - 1 || messages[index + 1].senderId != msg.senderId;
-                          final bool isBottom = index == 0 || messages[index - 1].senderId != msg.senderId;
-
-                          return GestureDetector(
-                            onLongPress: isMe && !msg.isDeleted ? () => _showDeleteDialog(msg.id) : null,
-                            child: Container(
-                              margin: EdgeInsets.only(
-                                top: isTop ? 16 : 2,
-                                bottom: index == 0 ? 12 : 0,
-                                left: 16,
-                                right: 16,
-                              ),
-                              child: Row(
-                                mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  if (!isMe) ...[
-                                    if (isBottom)
-                                      CircleAvatar(
-                                        radius: 16,
-                                        backgroundColor: theme.colorScheme.primaryContainer,
-                                        child: msg.sender?.avatarUrl != null
-                                            ? ClipOval(
-                                                child: AuthNetworkImage(
-                                                  imageUrl: msg.sender!.avatarUrl!,
-                                                  width: 32,
-                                                  height: 32,
-                                                  fit: BoxFit.cover,
-                                                ),
-                                              )
-                                            : Text(
-                                                msg.sender?.firstName.isNotEmpty == true 
-                                                    ? msg.sender!.firstName[0] 
-                                                    : '?',
-                                                style: TextStyle(
-                                                  fontSize: 14,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: theme.colorScheme.onPrimaryContainer,
-                                                ),
-                                              ),
-                                      )
-                                    else
-                                      const SizedBox(width: 32), // Space placeholder for avatar
-                                    const SizedBox(width: 8),
-                                  ],
-                                  Flexible(
-                                    child: Container(
-                                      constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
-                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                                      decoration: BoxDecoration(
-                                        color: isMe ? theme.colorScheme.primary : theme.colorScheme.surfaceContainerHighest,
-                                        borderRadius: BorderRadius.only(
-                                          topLeft: Radius.circular(isMe ? 18 : (isTop ? 18 : 6)),
-                                          topRight: Radius.circular(!isMe ? 18 : (isTop ? 18 : 6)),
-                                          bottomLeft: Radius.circular(isMe ? 18 : 6),
-                                          bottomRight: Radius.circular(!isMe ? 18 : 6),
-                                        ),
-                                      ),
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          if (!isMe && isTop && msg.sender != null) ...[
-                                            Text(
-                                              '${msg.sender!.firstName} ${msg.sender!.lastName}',
-                                              style: TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 13,
-                                                color: theme.colorScheme.primary,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 4),
-                                          ],
-                                          Wrap(
-                                            alignment: WrapAlignment.end,
-                                            crossAxisAlignment: WrapCrossAlignment.end,
-                                            children: [
-                                              Text(
-                                                msg.isDeleted ? '[Повідомлення видалено]' : msg.content,
-                                                style: TextStyle(
-                                                  fontStyle: msg.isDeleted ? FontStyle.italic : FontStyle.normal,
-                                                  color: isMe ? theme.colorScheme.onPrimary : theme.colorScheme.onSurfaceVariant,
-                                                  fontSize: 15,
-                                                ),
-                                              ),
-                                              const SizedBox(width: 8),
-                                              Padding(
-                                                padding: const EdgeInsets.only(bottom: 1),
-                                                child: Row(
-                                                  mainAxisSize: MainAxisSize.min,
-                                                  children: [
-                                                    Text(
-                                                      DateFormat('HH:mm').format(msg.createdAt.toLocal()),
-                                                      style: TextStyle(
-                                                        fontSize: 11,
-                                                        color: isMe 
-                                                          ? theme.colorScheme.onPrimary.withValues(alpha: 0.7) 
-                                                          : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
-                                                      ),
-                                                    ),
-                                                    if (isMe) ...[
-                                                      const SizedBox(width: 4),
-                                                      Icon(
-                                                        isReadByOthers ? Icons.done_all : Icons.check,
-                                                        size: 14,
-                                                        color: isReadByOthers 
-                                                          ? theme.colorScheme.onPrimary 
-                                                          : theme.colorScheme.onPrimary.withValues(alpha: 0.7),
-                                                      ),
-                                                    ],
-                                                  ],
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      );
-                    },
-                    loading: () => const Center(child: CircularProgressIndicator()),
-                    error: (err, _) => Center(child: Text('Помилка: $err')),
-                  ),
-                ),
-                SafeArea(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surface,
-                boxShadow: [
-                  BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4, offset: const Offset(0, -2))
-                ],
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _controller,
-                      minLines: 1,
-                      maxLines: 5,
-                      keyboardType: TextInputType.multiline,
-                      textCapitalization: TextCapitalization.sentences,
-                      decoration: InputDecoration(
-                        hintText: 'Повідомлення...',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(24),
-                          borderSide: BorderSide.none,
-                        ),
-                        filled: true,
-                        fillColor: theme.colorScheme.surfaceContainerHighest,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  CircleAvatar(
-                    backgroundColor: theme.colorScheme.primary,
-                    child: IconButton(
-                      icon: const Icon(Icons.send, color: Colors.white, size: 20),
-                      onPressed: _send,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-</file>
-
-<file path="lib/features/chats/presentation/screens/chats_screen.dart">
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
-import '../providers/chat_providers.dart';
-import '../../../../core/presentation/widgets/auth_network_image.dart';
-import '../../../profile/presentation/widgets/user_profile_button.dart';
-
-class ChatsScreen extends ConsumerWidget {
-  const ChatsScreen({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final chatsState = ref.watch(chatsListProvider);
-    final currentUserId = ref.watch(currentUserIdProvider);
-
-    return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      appBar: AppBar(
-        title: const Text('Чати', style: TextStyle(fontWeight: FontWeight.bold)),
-        centerTitle: true,
-        actions: const [UserProfileButton()],
-      ),
-      body: chatsState.when(
-        data: (groups) {
-          if (groups.isEmpty) {
-            return const Center(child: Text('У вас ще немає чатів'));
-          }
-          return RefreshIndicator(
-            onRefresh: () async => ref.refresh(chatsListProvider),
-            child: ListView.separated(
-              itemCount: groups.length,
-              separatorBuilder: (_, __) => const Divider(height: 1, indent: 72),
-              itemBuilder: (context, index) {
-                final group = groups[index];
-                final lastMsg = group.messages.isNotEmpty ? group.messages.first : null;
-
-                return ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  leading: CircleAvatar(
-                    radius: 28,
-                    backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-                    child: group.avatarUrl != null
-                        ? ClipOval(
-                            child: AuthNetworkImage(
-                              imageUrl: group.avatarUrl!,
-                              width: 56,
-                              height: 56,
-                              fit: BoxFit.cover,
-                            ),
-                          )
-                        : Text(group.name[0], style: const TextStyle(fontWeight: FontWeight.bold)),
-                  ),
-                  title: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          group.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                        ),
-                      ),
-                      if (lastMsg != null)
-                        Text(
-                          DateFormat('HH:mm').format(lastMsg.createdAt.toLocal()),
-                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: group.unreadCount > 0 ? Theme.of(context).colorScheme.primary : null,
-                            fontWeight: group.unreadCount > 0 ? FontWeight.bold : null,
-                          ),
-                        ),
-                    ],
-                  ),
-                  subtitle: Row(
-                    children: [
-                      Expanded(
-                        child: lastMsg != null
-                            ? RichText(
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                text: TextSpan(
-                                  style: TextStyle(
-                                    fontStyle: lastMsg.isDeleted ? FontStyle.italic : FontStyle.normal,
-                                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                    fontSize: 14,
-                                  ),
-                                  children: [
-                                    if (!lastMsg.isDeleted)
-                                      if (currentUserId != null && lastMsg.senderId == currentUserId)
-                                        TextSpan(
-                                          text: 'Ви: ',
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.w600,
-                                            color: Theme.of(context).colorScheme.onSurface,
-                                          ),
-                                        )
-                                      else if (lastMsg.sender != null)
-                                        TextSpan(
-                                          text: '${lastMsg.sender!.firstName}: ',
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.w600,
-                                            color: Theme.of(context).colorScheme.onSurface,
-                                          ),
-                                        ),
-                                    TextSpan(text: lastMsg.isDeleted ? '[Повідомлення видалено]' : lastMsg.content),
-                                  ],
-                                ),
-                              )
-                            : const Text('Немає повідомлень', style: TextStyle(fontStyle: FontStyle.italic)),
-                      ),
-                      if (group.unreadCount > 0)
-                        Container(
-                          margin: const EdgeInsets.only(left: 8),
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.primary,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            '${group.unreadCount}',
-                            style: TextStyle(
-                              color: Theme.of(context).colorScheme.onPrimary,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                  onTap: () => context.push('/chats/${group.id}'),
-                );
-              },
-            ),
-          );
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, _) => Center(child: Text('Помилка: $err')),
-      ),
-    );
-  }
-}
-</file>
-
 <file path="lib/features/news/data/repositories/news-repository.dart">
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -3724,204 +3276,6 @@ class NewsRepository {
       }
       throw Exception('Помилка з\'єднання: ${e.message}');
     }
-  }
-}
-</file>
-
-<file path="lib/features/news/presentations/widgets/news_card.dart">
-import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
-import '../../data/models/news_models.dart';
-import 'tiptap_renderer.dart';
-import '../../../../core/presentation/widgets/auth_network_image.dart';
-
-class NewsCard extends StatelessWidget {
-  final NewsArticle article;
-  final VoidCallback onTap;
-  final VoidCallback onLike;
-  final VoidCallback onDislike;
-  final VoidCallback onCommentTap;
-
-  const NewsCard({
-    super.key,
-    required this.article,
-    required this.onTap,
-    required this.onLike,
-    required this.onDislike,
-    required this.onCommentTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    
-    return Card(
-      elevation: 2,
-      margin: const EdgeInsets.only(bottom: 16),
-      clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: InkWell(
-        onTap: onTap,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (article.imageUrl != null && article.imageUrl!.isNotEmpty)
-              AspectRatio(
-                aspectRatio: 16 / 9,
-                child: AuthNetworkImage(
-                  imageUrl: article.imageUrl!,
-                  fit: BoxFit.cover,
-                ),
-              ),
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      if (article.category != null)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.primaryContainer,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            article.category!.name,
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: theme.colorScheme.onPrimaryContainer,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        )
-                      else
-                        const SizedBox.shrink(),
-                      Text(
-                        DateFormat('dd MMM yyyy, HH:mm').format(article.createdAt.toLocal()),
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    article.title,
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      height: 1.2,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 8),
-                  // Using TipTap extractor to display clean text
-                  Text(
-                    TipTapHelper.extractPlainText(article.content),
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 16),
-                  Divider(color: theme.colorScheme.outlineVariant),
-                  const SizedBox(height: 4),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          _buildActionButton(
-                            context: context,
-                            icon: article.votes.any((v) => v.voteType == 'UPVOTE') 
-                                ? Icons.thumb_up 
-                                : Icons.thumb_up_alt_outlined,
-                            label: '${article.upvotes > 0 ? article.upvotes : (article.count?.likes ?? 0)}',
-                            onTap: onLike,
-                            isActive: article.votes.any((v) => v.voteType == 'UPVOTE'),
-                            activeColor: Colors.green.shade600,
-                          ),
-                          const SizedBox(width: 16),
-                          _buildActionButton(
-                            context: context,
-                            icon: article.votes.any((v) => v.voteType == 'DOWNVOTE') 
-                                ? Icons.thumb_down 
-                                : Icons.thumb_down_alt_outlined,
-                            label: '${article.downvotes > 0 ? article.downvotes : (article.count?.dislikes ?? 0)}',
-                            onTap: onDislike,
-                            isActive: article.votes.any((v) => v.voteType == 'DOWNVOTE'),
-                            activeColor: Colors.red.shade600,
-                          ),
-                        ],
-                      ),
-                      _buildActionButton(
-                        context: context,
-                        icon: Icons.comment_outlined,
-                        label: '${article.count?.comments ?? 0}',
-                        onTap: onCommentTap,
-                        isActive: false,
-                        activeColor: theme.colorScheme.primary,
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildActionButton({
-    required BuildContext context,
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-    required bool isActive,
-    required Color activeColor,
-  }) {
-    final theme = Theme.of(context);
-    final displayColor = isActive ? activeColor : theme.colorScheme.onSurfaceVariant;
-    
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-        decoration: BoxDecoration(
-          color: isActive 
-              ? activeColor.withValues(alpha: 0.1) 
-              : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-          borderRadius: BorderRadius.circular(20),
-          border: isActive 
-              ? Border.all(color: activeColor.withValues(alpha: 0.3)) 
-              : Border.all(color: Colors.transparent),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              icon, 
-              size: 20, 
-              color: displayColor,
-            ),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: theme.textTheme.labelLarge?.copyWith(
-                color: displayColor,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }
 </file>
@@ -4912,6 +4266,229 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 }
 </file>
 
+<file path="lib/features/auth/providers/auth_provider.dart">
+import 'dart:convert';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../../../core/storage/secure_storage_provider.dart';
+import '../data/repositories/auth_repository.dart';
+
+final currentTokenProvider = StateProvider<String?>((ref) => null);
+
+final currentUserIdProvider = Provider<String?>((ref) {
+  final token = ref.watch(currentTokenProvider);
+  if (token == null || token.isEmpty) return null;
+  
+  try {
+    final parts = token.split('.');
+    if (parts.length != 3) return null;
+    
+    final payload = base64Url.normalize(parts[1]);
+    final decoded = json.decode(utf8.decode(base64Url.decode(payload)));
+    
+    return decoded['id'] ?? decoded['sub']; 
+  } catch (e) {
+    return null;
+  }
+});
+
+final authStateProvider = StateNotifierProvider<AuthNotifier, AsyncValue<bool>>((ref) {
+  return AuthNotifier(
+    ref.watch(authRepositoryProvider),
+    ref.watch(secureStorageProvider),
+    ref,
+  );
+});
+
+class AuthNotifier extends StateNotifier<AsyncValue<bool>> {
+  final AuthRepository _repository;
+  final FlutterSecureStorage _storage;
+  final Ref _ref;
+
+  AuthNotifier(this._repository, this._storage, this._ref) : super(const AsyncValue.loading()) {
+    _checkToken();
+  }
+
+  Future<void> _checkToken() async {
+    final token = await _storage.read(key: 'jwt_token');
+    if (token != null && token.isNotEmpty) {
+      _ref.read(currentTokenProvider.notifier).state = token;
+      state = const AsyncValue.data(true);
+    } else {
+      state = const AsyncValue.data(false);
+    }
+  }
+
+  Future<void> login(String email, String password) async {
+    state = const AsyncValue.loading();
+    try {
+      final token = await _repository.login(email, password);
+      await _storage.write(key: 'jwt_token', value: token);
+      _ref.read(currentTokenProvider.notifier).state = token;
+      state = const AsyncValue.data(true);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
+  }
+
+  Future<void> logout() async {
+    try {
+      await _storage.delete(key: 'jwt_token');
+    } catch (_) {
+      // Ігноруємо системні краші стораджа, щоб гарантовано змінити стейт
+    }
+    _ref.read(currentTokenProvider.notifier).state = null;
+    state = const AsyncValue.data(false);
+  }
+}
+</file>
+
+<file path="lib/features/chats/presentation/screens/chats_screen.dart">
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
+import '../providers/chat_providers.dart';
+import '../../../../core/presentation/widgets/auth_network_image.dart';
+import '../../../profile/presentation/widgets/user_profile_button.dart';
+import '../../../auth/providers/auth_provider.dart';
+
+class ChatsScreen extends ConsumerWidget {
+  const ChatsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final chatsState = ref.watch(chatsListProvider);
+    final currentUserId = ref.watch(currentUserIdProvider);
+
+    return Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      appBar: AppBar(
+        title: const Text('Чати', style: TextStyle(fontWeight: FontWeight.bold)),
+        centerTitle: true,
+        actions: const [UserProfileButton()],
+      ),
+      body: chatsState.when(
+        data: (groups) {
+          if (groups.isEmpty) {
+            return const Center(child: Text('У вас ще немає чатів'));
+          }
+          return RefreshIndicator(
+            onRefresh: () async => ref.refresh(chatsListProvider),
+            child: ListView.separated(
+              itemCount: groups.length,
+              separatorBuilder: (_, __) => const Divider(height: 1, indent: 72),
+              itemBuilder: (context, index) {
+                final group = groups[index];
+                final lastMsg = group.messages.isNotEmpty ? group.messages.first : null;
+
+                return ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  leading: CircleAvatar(
+                    radius: 28,
+                    backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                    child: group.avatarUrl != null
+                        ? ClipOval(
+                            child: AuthNetworkImage(
+                              imageUrl: group.avatarUrl!,
+                              width: 56,
+                              height: 56,
+                              fit: BoxFit.cover,
+                            ),
+                          )
+                        : Text(group.name[0], style: const TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                  title: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          group.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                        ),
+                      ),
+                      if (lastMsg != null)
+                        Text(
+                          DateFormat('HH:mm').format(lastMsg.createdAt.toLocal()),
+                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: group.unreadCount > 0 ? Theme.of(context).colorScheme.primary : null,
+                            fontWeight: group.unreadCount > 0 ? FontWeight.bold : null,
+                          ),
+                        ),
+                    ],
+                  ),
+                  subtitle: Row(
+                    children: [
+                      Expanded(
+                        child: lastMsg != null
+                            ? RichText(
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                text: TextSpan(
+                                  style: TextStyle(
+                                    fontStyle: lastMsg.isDeleted ? FontStyle.italic : FontStyle.normal,
+                                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                    fontSize: 14,
+                                  ),
+                                  children: [
+                                    if (!lastMsg.isDeleted)
+                                      if (currentUserId != null && lastMsg.senderId == currentUserId)
+                                        TextSpan(
+                                          text: 'Ви: ',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            color: Theme.of(context).colorScheme.onSurface,
+                                          ),
+                                        )
+                                      else if (lastMsg.sender != null)
+                                        TextSpan(
+                                          text: '${lastMsg.sender!.firstName}: ',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            color: Theme.of(context).colorScheme.onSurface,
+                                          ),
+                                        ),
+                                    TextSpan(text: lastMsg.isDeleted ? '[Повідомлення видалено]' : lastMsg.content),
+                                  ],
+                                ),
+                              )
+                            : const Text('Немає повідомлень', style: TextStyle(fontStyle: FontStyle.italic)),
+                      ),
+                      if (group.unreadCount > 0)
+                        Container(
+                          margin: const EdgeInsets.only(left: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.primary,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            '${group.unreadCount}',
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.onPrimary,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  onTap: () => context.push('/chats/${group.id}'),
+                );
+              },
+            ),
+          );
+        },
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, _) => Center(child: Text('Помилка: $err')),
+      ),
+    );
+  }
+}
+</file>
+
 <file path="lib/features/news/presentations/providers/news_providers.dart">
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/models/news_models.dart';
@@ -5021,6 +4598,790 @@ final newsListProvider = AsyncNotifierProvider<NewsListNotifier, List<NewsArticl
 );
 </file>
 
+<file path="lib/features/news/presentations/widgets/news_card.dart">
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import '../../data/models/news_models.dart';
+import 'tiptap_renderer.dart';
+import '../../../../core/presentation/widgets/auth_network_image.dart';
+
+class NewsCard extends StatelessWidget {
+  final NewsArticle article;
+  final VoidCallback onTap;
+  final VoidCallback onLike;
+  final VoidCallback onDislike;
+  final VoidCallback onCommentTap;
+  final String? currentUserId;
+
+  const NewsCard({
+    super.key,
+    required this.article,
+    required this.onTap,
+    required this.onLike,
+    required this.onDislike,
+    required this.onCommentTap,
+    this.currentUserId,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    
+    return Card(
+      elevation: 2,
+      margin: const EdgeInsets.only(bottom: 16),
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (article.imageUrl != null && article.imageUrl!.isNotEmpty)
+              AspectRatio(
+                aspectRatio: 16 / 9,
+                child: AuthNetworkImage(
+                  imageUrl: article.imageUrl!,
+                  fit: BoxFit.cover,
+                ),
+              ),
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      if (article.category != null)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.primaryContainer,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            article.category!.name,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: theme.colorScheme.onPrimaryContainer,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        )
+                      else
+                        const SizedBox.shrink(),
+                      Text(
+                        DateFormat('dd MMM yyyy, HH:mm').format(article.createdAt.toLocal()),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    article.title,
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      height: 1.2,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 8),
+                  // Using TipTap extractor to display clean text
+                  Text(
+                    TipTapHelper.extractPlainText(article.content),
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 16),
+                  Divider(color: theme.colorScheme.outlineVariant),
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          _buildActionButton(
+                            context: context,
+                            icon: article.votes.any((v) => v.voteType == 'UPVOTE' && v.userId == currentUserId) 
+                                ? Icons.thumb_up 
+                                : Icons.thumb_up_alt_outlined,
+                            label: '${article.upvotes > 0 ? article.upvotes : (article.count?.likes ?? 0)}',
+                            onTap: onLike,
+                            isActive: article.votes.any((v) => v.voteType == 'UPVOTE' && v.userId == currentUserId),
+                            activeColor: Colors.green.shade600,
+                          ),
+                          const SizedBox(width: 16),
+                          _buildActionButton(
+                            context: context,
+                            icon: article.votes.any((v) => v.voteType == 'DOWNVOTE' && v.userId == currentUserId) 
+                                ? Icons.thumb_down 
+                                : Icons.thumb_down_alt_outlined,
+                            label: '${article.downvotes > 0 ? article.downvotes : (article.count?.dislikes ?? 0)}',
+                            onTap: onDislike,
+                            isActive: article.votes.any((v) => v.voteType == 'DOWNVOTE' && v.userId == currentUserId),
+                            activeColor: Colors.red.shade600,
+                          ),
+                        ],
+                      ),
+                      _buildActionButton(
+                        context: context,
+                        icon: Icons.comment_outlined,
+                        label: '${article.count?.comments ?? 0}',
+                        onTap: onCommentTap,
+                        isActive: false,
+                        activeColor: theme.colorScheme.primary,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionButton({
+    required BuildContext context,
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    required bool isActive,
+    required Color activeColor,
+  }) {
+    final theme = Theme.of(context);
+    final displayColor = isActive ? activeColor : theme.colorScheme.onSurfaceVariant;
+    
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+        decoration: BoxDecoration(
+          color: isActive 
+              ? activeColor.withValues(alpha: 0.1) 
+              : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+          borderRadius: BorderRadius.circular(20),
+          border: isActive 
+              ? Border.all(color: activeColor.withValues(alpha: 0.3)) 
+              : Border.all(color: Colors.transparent),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              icon, 
+              size: 20, 
+              color: displayColor,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: displayColor,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+</file>
+
+<file path="lib/features/chats/presentation/providers/chat_providers.dart">
+import 'dart:async';
+import 'dart:convert';
+import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../data/models/chat_models.dart';
+import '../../data/repositories/chat_repository.dart';
+import '../../data/services/chat_socket_service.dart';
+import '../../../auth/providers/auth_provider.dart';
+
+final chatMembersProvider = FutureProvider.family<List<ChatMember>, String>((ref, groupId) async {
+  return ref.watch(chatRepositoryProvider).getGroupMembers(groupId);
+});
+
+final chatsListProvider = AsyncNotifierProvider<ChatsListNotifier, List<ChatGroup>>(
+  () => ChatsListNotifier(),
+);
+
+class ChatsListNotifier extends AsyncNotifier<List<ChatGroup>> {
+  StreamSubscription? _newMessageSub;
+
+  @override
+  Future<List<ChatGroup>> build() async {
+    final token = ref.watch(currentTokenProvider);
+    final socket = ref.watch(chatSocketServiceProvider);
+    
+    if (token == null || token.isEmpty) {
+      socket.disconnect();
+      return [];
+    }
+
+    await socket.connect();
+
+    _newMessageSub?.cancel();
+    _newMessageSub = socket.onNewMessage.listen((msg) {
+      _updateLastMessage(msg);
+    });
+
+    ref.onDispose(() => _newMessageSub?.cancel());
+
+    final groups = await ref.watch(chatRepositoryProvider).getGroups();
+    
+    groups.sort((a, b) {
+      final aDate = a.messages.isNotEmpty ? a.messages.first.createdAt : a.createdAt;
+      final bDate = b.messages.isNotEmpty ? b.messages.first.createdAt : b.createdAt;
+      return bDate.compareTo(aDate);
+    });
+    
+    return groups;
+  }
+
+  void _updateLastMessage(ChatMessage message) {
+    if (state.value == null) return;
+    final groups = [...state.value!];
+    
+    final index = groups.indexWhere((g) => g.id == message.groupId);
+    if (index != -1) {
+      final group = groups[index];
+      final currentUserId = ref.read(currentUserIdProvider);
+      final isMine = currentUserId != null && message.senderId == currentUserId;
+      
+      groups[index] = group.copyWith(
+        messages: [message],
+        unreadCount: isMine ? group.unreadCount : group.unreadCount + 1,
+      );
+      
+      final updatedGroup = groups.removeAt(index);
+      groups.insert(0, updatedGroup);
+      
+      state = AsyncValue.data(groups);
+    }
+  }
+
+  void clearUnreadCount(String groupId) {
+    if (state.value == null) return;
+    final groups = [...state.value!];
+    final index = groups.indexWhere((g) => g.id == groupId);
+    if (index != -1) {
+      groups[index] = groups[index].copyWith(unreadCount: 0);
+      state = AsyncValue.data(groups);
+    }
+  }
+
+  Future<void> updateGroupAvatar(String groupId, String filePath) async {
+    try {
+      final newAvatarUrl = await ref.read(chatRepositoryProvider).uploadGroupAvatar(groupId, filePath);
+      if (state.value != null) {
+        final groups = [...state.value!];
+        final index = groups.indexWhere((g) => g.id == groupId);
+        if (index != -1) {
+          groups[index] = groups[index].copyWith(avatarUrl: newAvatarUrl);
+          state = AsyncValue.data(groups);
+        }
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+}
+
+final chatMessagesProvider = AsyncNotifierProviderFamily<ChatMessagesNotifier, List<ChatMessage>, String>(
+  () => ChatMessagesNotifier(),
+);
+
+class ChatMessagesNotifier extends FamilyAsyncNotifier<List<ChatMessage>, String> {
+  StreamSubscription? _subNew;
+  StreamSubscription? _subUpdate;
+  StreamSubscription? _subDelete;
+  StreamSubscription? _subRead;
+
+  int _currentPage = 1;
+  bool _hasMore = true;
+  bool _isFetching = false;
+  final Set<String> _pendingReadReceipts = {};
+
+  bool get hasMore => _hasMore;
+
+  @override
+  Future<List<ChatMessage>> build(String arg) async {
+    final token = ref.watch(currentTokenProvider);
+    final socket = ref.watch(chatSocketServiceProvider);
+    
+    if (token == null || token.isEmpty) {
+      return [];
+    }
+
+    await socket.connect();
+    socket.joinRoom(arg);
+
+    _setupSocketListeners(socket);
+    
+    _currentPage = 1;
+    final response = await ref.watch(chatRepositoryProvider).getMessages(arg, page: _currentPage);
+    _hasMore = response.meta.page < response.meta.lastPage;
+    
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(chatsListProvider.notifier).clearUnreadCount(arg);
+    });
+
+    return response.data.reversed.toList();
+  }
+
+  void _setupSocketListeners(ChatSocketService socket) {
+    _subNew?.cancel();
+    _subUpdate?.cancel();
+    _subDelete?.cancel();
+    _subRead?.cancel();
+
+    _subNew = socket.onNewMessage.listen((msg) {
+      if (msg.groupId == arg && state.value != null) {
+        state = AsyncValue.data([msg, ...state.value!]);
+        final currentUserId = ref.read(currentUserIdProvider);
+        if (currentUserId != null && msg.senderId != currentUserId) {
+          markAsRead([msg.id]);
+        }
+      }
+    });
+
+    _subUpdate = socket.onMessageUpdated.listen((msg) {
+      if (msg.groupId == arg && state.value != null) {
+        final msgs = state.value!.map((m) => m.id == msg.id ? msg : m).toList();
+        state = AsyncValue.data(msgs);
+      }
+    });
+
+    _subDelete = socket.onMessageDeleted.listen((msg) {
+      if (msg.groupId == arg && state.value != null) {
+        final msgs = state.value!.map((m) => m.id == msg.id ? msg : m).toList();
+        state = AsyncValue.data(msgs);
+      }
+    });
+
+    _subRead = socket.onMessagesRead.listen((data) {
+      if (data['groupId'] == arg && state.value != null) {
+        final messageIds = List<String>.from(data['messageIds'] ?? []);
+        final readByUserId = data['readByUserId'] as String;
+        
+        final msgs = state.value!.map((m) {
+          if (messageIds.contains(m.id)) {
+            final newReceipt = ChatReadReceipt(userId: readByUserId, readAt: DateTime.now());
+            return m.copyWith(readReceipts: [...m.readReceipts, newReceipt]);
+          }
+          return m;
+        }).toList();
+        
+        state = AsyncValue.data(msgs);
+      }
+    });
+
+    ref.onDispose(() {
+      _subNew?.cancel();
+      _subUpdate?.cancel();
+      _subDelete?.cancel();
+      _subRead?.cancel();
+    });
+  }
+  
+  Future<void> loadMore() async {
+    if (!_hasMore || _isFetching) return;
+
+    _isFetching = true;
+    _currentPage++;
+    
+    try {
+      final response = await ref.read(chatRepositoryProvider).getMessages(arg, page: _currentPage);
+      _hasMore = response.meta.page < response.meta.lastPage;
+      
+      final currentMessages = state.value ?? [];
+      state = AsyncValue.data([...currentMessages, ...response.data.reversed.toList()]);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    } finally {
+      _isFetching = false;
+    }
+  }
+
+  void sendMessage(String content) {
+    ref.read(chatSocketServiceProvider).sendMessage(arg, content);
+  }
+
+  void deleteMessage(String messageId) {
+    ref.read(chatSocketServiceProvider).deleteMessage(messageId);
+  }
+
+  void markAsRead(List<String> messageIds) {
+    final currentUserId = ref.read(currentUserIdProvider);
+    if (currentUserId == null) return;
+    
+    final unreadIds = messageIds.where((id) => !_pendingReadReceipts.contains(id)).toList();
+    if (unreadIds.isEmpty) return;
+    
+    _pendingReadReceipts.addAll(unreadIds);
+    ref.read(chatSocketServiceProvider).markAsRead(arg, unreadIds);
+  }
+}
+</file>
+
+<file path="lib/features/chats/presentation/screens/chat_detail_screen.dart">
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
+import '../providers/chat_providers.dart';
+import '../../data/models/chat_models.dart';
+import '../../../../core/presentation/widgets/auth_network_image.dart';
+import '../../../auth/providers/auth_provider.dart';
+
+class ChatDetailScreen extends ConsumerStatefulWidget {
+  final String groupId;
+  const ChatDetailScreen({super.key, required this.groupId});
+
+  @override
+  ConsumerState<ChatDetailScreen> createState() => _ChatDetailScreenState();
+}
+
+class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
+  final _controller = TextEditingController();
+  final _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      ref.read(chatMessagesProvider(widget.groupId).notifier).loadMore();
+    }
+  }
+
+  void _send() {
+    final text = _controller.text.trim();
+    if (text.isEmpty) return;
+    
+    ref.read(chatMessagesProvider(widget.groupId).notifier).sendMessage(text);
+    _controller.clear();
+  }
+
+  void _showDeleteDialog(String messageId) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Видалити повідомлення?'),
+        content: const Text('Цю дію неможливо скасувати.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Скасувати')),
+          TextButton(
+            onPressed: () {
+              ref.read(chatMessagesProvider(widget.groupId).notifier).deleteMessage(messageId);
+              Navigator.pop(context);
+            },
+            child: const Text('Видалити', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final messagesState = ref.watch(chatMessagesProvider(widget.groupId));
+    final currentUserId = ref.watch(currentUserIdProvider);
+    final groupsState = ref.watch(chatsListProvider);
+    final theme = Theme.of(context);
+    
+    final group = groupsState.value?.where((g) => g.id == widget.groupId).firstOrNull;
+    final groupName = group?.name ?? 'Чат';
+
+    return Scaffold(
+      appBar: AppBar(
+        title: InkWell(
+          onTap: () => context.push('/chats/${widget.groupId}/info'),
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 8.0),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 18,
+                  backgroundColor: theme.colorScheme.primaryContainer,
+                  child: group?.avatarUrl != null
+                      ? ClipOval(
+                          child: AuthNetworkImage(
+                            imageUrl: group!.avatarUrl!,
+                            width: 36,
+                            height: 36,
+                            fit: BoxFit.cover,
+                          ),
+                        )
+                      : Text(groupName.isNotEmpty ? groupName[0] : '?', style: const TextStyle(fontWeight: FontWeight.bold)),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        groupName, 
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        'Натисніть для інформації', 
+                        style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurfaceVariant),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        titleSpacing: 0,
+      ),
+      body: Column(
+              children: [
+                Expanded(
+                  child: messagesState.when(
+                    data: (messages) {
+                      if (messages.isEmpty) {
+                        return const Center(child: Text('Немає повідомлень'));
+                      }
+                      
+                      return ListView.builder(
+                        controller: _scrollController,
+                        reverse: true, // Newest at the bottom
+                        padding: const EdgeInsets.only(top: 16, bottom: 16),
+                        itemCount: messages.length + 1,
+                        itemBuilder: (context, index) {
+                          if (index == messages.length) {
+                            final hasMore = ref.read(chatMessagesProvider(widget.groupId).notifier).hasMore;
+                            return hasMore 
+                                ? const Padding(padding: EdgeInsets.all(16.0), child: Center(child: CircularProgressIndicator()))
+                                : const SizedBox.shrink();
+                          }
+
+                          final msg = messages[index];
+                          final isMe = currentUserId != null && msg.senderId == currentUserId;
+                          
+                          // Mark as read if not me and no my receipt exists
+                          if (!isMe && currentUserId != null) {
+                            final isReadByMe = msg.readReceipts.any((r) => r.userId == currentUserId);
+                            if (!isReadByMe) {
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                ref.read(chatMessagesProvider(widget.groupId).notifier).markAsRead([msg.id]);
+                              });
+                            }
+                          }
+                          
+                          final isReadByOthers = msg.readReceipts.any((r) => r.userId != msg.senderId);
+                          
+                          // Grouping logic for bubble styles and spacing
+                          // reverse: true means index 0 is the newest message
+                          final bool isTop = index == messages.length - 1 || messages[index + 1].senderId != msg.senderId;
+                          final bool isBottom = index == 0 || messages[index - 1].senderId != msg.senderId;
+
+                          return GestureDetector(
+                            onLongPress: isMe && !msg.isDeleted ? () => _showDeleteDialog(msg.id) : null,
+                            child: Container(
+                              margin: EdgeInsets.only(
+                                top: isTop ? 16 : 2,
+                                bottom: index == 0 ? 12 : 0,
+                                left: 16,
+                                right: 16,
+                              ),
+                              child: Row(
+                                mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  if (!isMe) ...[
+                                    if (isBottom)
+                                      CircleAvatar(
+                                        radius: 16,
+                                        backgroundColor: theme.colorScheme.primaryContainer,
+                                        child: msg.sender?.avatarUrl != null
+                                            ? ClipOval(
+                                                child: AuthNetworkImage(
+                                                  imageUrl: msg.sender!.avatarUrl!,
+                                                  width: 32,
+                                                  height: 32,
+                                                  fit: BoxFit.cover,
+                                                ),
+                                              )
+                                            : Text(
+                                                msg.sender?.firstName.isNotEmpty == true 
+                                                    ? msg.sender!.firstName[0] 
+                                                    : '?',
+                                                style: TextStyle(
+                                                  fontSize: 14,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: theme.colorScheme.onPrimaryContainer,
+                                                ),
+                                              ),
+                                      )
+                                    else
+                                      const SizedBox(width: 32), // Space placeholder for avatar
+                                    const SizedBox(width: 8),
+                                  ],
+                                  Flexible(
+                                    child: Container(
+                                      constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
+                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                      decoration: BoxDecoration(
+                                        color: isMe ? theme.colorScheme.primary : theme.colorScheme.surfaceContainerHighest,
+                                        borderRadius: BorderRadius.only(
+                                          topLeft: Radius.circular(isMe ? 18 : (isTop ? 18 : 6)),
+                                          topRight: Radius.circular(!isMe ? 18 : (isTop ? 18 : 6)),
+                                          bottomLeft: Radius.circular(isMe ? 18 : 6),
+                                          bottomRight: Radius.circular(!isMe ? 18 : 6),
+                                        ),
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          if (!isMe && isTop && msg.sender != null) ...[
+                                            Text(
+                                              '${msg.sender!.firstName} ${msg.sender!.lastName}',
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 13,
+                                                color: theme.colorScheme.primary,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                          ],
+                                          Wrap(
+                                            alignment: WrapAlignment.end,
+                                            crossAxisAlignment: WrapCrossAlignment.end,
+                                            children: [
+                                              Text(
+                                                msg.isDeleted ? '[Повідомлення видалено]' : msg.content,
+                                                style: TextStyle(
+                                                  fontStyle: msg.isDeleted ? FontStyle.italic : FontStyle.normal,
+                                                  color: isMe ? theme.colorScheme.onPrimary : theme.colorScheme.onSurfaceVariant,
+                                                  fontSize: 15,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Padding(
+                                                padding: const EdgeInsets.only(bottom: 1),
+                                                child: Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    Text(
+                                                      DateFormat('HH:mm').format(msg.createdAt.toLocal()),
+                                                      style: TextStyle(
+                                                        fontSize: 11,
+                                                        color: isMe 
+                                                          ? theme.colorScheme.onPrimary.withValues(alpha: 0.7) 
+                                                          : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                                                      ),
+                                                    ),
+                                                    if (isMe) ...[
+                                                      const SizedBox(width: 4),
+                                                      Icon(
+                                                        isReadByOthers ? Icons.done_all : Icons.check,
+                                                        size: 14,
+                                                        color: isReadByOthers 
+                                                          ? theme.colorScheme.onPrimary 
+                                                          : theme.colorScheme.onPrimary.withValues(alpha: 0.7),
+                                                      ),
+                                                    ],
+                                                  ],
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      );
+                    },
+                    loading: () => const Center(child: CircularProgressIndicator()),
+                    error: (err, _) => Center(child: Text('Помилка: $err')),
+                  ),
+                ),
+                SafeArea(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surface,
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4, offset: const Offset(0, -2))
+                ],
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _controller,
+                      minLines: 1,
+                      maxLines: 5,
+                      keyboardType: TextInputType.multiline,
+                      textCapitalization: TextCapitalization.sentences,
+                      decoration: InputDecoration(
+                        hintText: 'Повідомлення...',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(24),
+                          borderSide: BorderSide.none,
+                        ),
+                        filled: true,
+                        fillColor: theme.colorScheme.surfaceContainerHighest,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  CircleAvatar(
+                    backgroundColor: theme.colorScheme.primary,
+                    child: IconButton(
+                      icon: const Icon(Icons.send, color: Colors.white, size: 20),
+                      onPressed: _send,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+</file>
+
 <file path="lib/features/news/presentations/screens/news_detail_screen.dart">
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5029,6 +5390,7 @@ import '../providers/news_providers.dart';
 import '../widgets/tiptap_renderer.dart';
 import '../../data/models/news_models.dart';
 import '../../../../core/presentation/widgets/auth_network_image.dart';
+import '../../../auth/providers/auth_provider.dart';
 
 class NewsDetailScreen extends ConsumerStatefulWidget {
   final String newsId;
@@ -5093,6 +5455,7 @@ class _NewsDetailScreenState extends ConsumerState<NewsDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final newsState = ref.watch(newsDetailProvider(widget.newsId));
+    final currentUserId = ref.watch(currentUserIdProvider);
     final theme = Theme.of(context);
 
     return Scaffold(
@@ -5190,11 +5553,11 @@ class _NewsDetailScreenState extends ConsumerState<NewsDetailScreen> {
                       Row(
                         children: [
                           _buildInteractionButton(
-                            icon: article.votes.any((v) => v.voteType == 'UPVOTE') 
+                            icon: article.votes.any((v) => v.voteType == 'UPVOTE' && v.userId == currentUserId) 
                                 ? Icons.thumb_up 
                                 : Icons.thumb_up_alt_outlined,
                             label: '${article.upvotes > 0 ? article.upvotes : (article.count?.likes ?? 0)}',
-                            isActive: article.votes.any((v) => v.voteType == 'UPVOTE'),
+                            isActive: article.votes.any((v) => v.voteType == 'UPVOTE' && v.userId == currentUserId),
                             activeColor: Colors.green.shade600,
                             onTap: () async {
                               try {
@@ -5208,11 +5571,11 @@ class _NewsDetailScreenState extends ConsumerState<NewsDetailScreen> {
                           ),
                           const SizedBox(width: 16),
                           _buildInteractionButton(
-                            icon: article.votes.any((v) => v.voteType == 'DOWNVOTE') 
+                            icon: article.votes.any((v) => v.voteType == 'DOWNVOTE' && v.userId == currentUserId) 
                                 ? Icons.thumb_down 
                                 : Icons.thumb_down_alt_outlined,
                             label: '${article.downvotes > 0 ? article.downvotes : (article.count?.dislikes ?? 0)}',
-                            isActive: article.votes.any((v) => v.voteType == 'DOWNVOTE'),
+                            isActive: article.votes.any((v) => v.voteType == 'DOWNVOTE' && v.userId == currentUserId),
                             activeColor: Colors.red.shade600,
                             onTap: () async {
                               try {
@@ -5452,6 +5815,7 @@ import 'package:dsns_hub/core/presentation/widgets/filter_choice_chip.dart';
 import '../providers/news_providers.dart';
 import '../widgets/news_card.dart';
 import '../../../profile/presentation/widgets/user_profile_button.dart';
+import '../../../auth/providers/auth_provider.dart';
 
 class NewsScreen extends ConsumerStatefulWidget {
   const NewsScreen({super.key});
@@ -5490,6 +5854,7 @@ class _NewsScreenState extends ConsumerState<NewsScreen> {
   @override
   Widget build(BuildContext context) {
     final newsState = ref.watch(newsListProvider);
+    final currentUserId = ref.watch(currentUserIdProvider);
 
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
@@ -5523,6 +5888,7 @@ class _NewsScreenState extends ConsumerState<NewsScreen> {
                       final article = articles[index];
                       return NewsCard(
                         article: article,
+                        currentUserId: currentUserId,
                         onTap: () => context.push('/news/${article.id}'),
                         onLike: () async {
                           try {
@@ -7161,6 +7527,7 @@ import '../../features/news/presentations/screens/news_screen.dart';
 import '../../features/news/presentations/screens/news_detail_screen.dart';
 import '../../features/chats/presentation/screens/chats_screen.dart';
 import '../../features/chats/presentation/screens/chat_detail_screen.dart';
+import '../../features/chats/presentation/screens/chat_info_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -7274,6 +7641,15 @@ final routerProvider = Provider<GoRouter>((ref) {
                       final groupId = state.pathParameters['id']!;
                       return ChatDetailScreen(groupId: groupId);
                     },
+                    routes: [
+                      GoRoute(
+                        path: 'info',
+                        builder: (context, state) {
+                          final groupId = state.pathParameters['id']!;
+                          return ChatInfoScreen(groupId: groupId);
+                        },
+                      ),
+                    ],
                   ),
                 ],
               ),

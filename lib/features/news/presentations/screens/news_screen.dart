@@ -48,11 +48,9 @@ class _NewsScreenState extends ConsumerState<NewsScreen> {
     final currentUserId = ref.watch(currentUserIdProvider);
 
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
         title: const Text('Стрічка новин', style: TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: true,
-        scrolledUnderElevation: 2,
         actions: const [UserProfileButton()],
       ),
       body: Column(

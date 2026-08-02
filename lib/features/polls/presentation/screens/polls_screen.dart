@@ -34,13 +34,9 @@ class _PollsScreenState extends ConsumerState<PollsScreen> {
     final pollsState = ref.watch(pollsProvider);
 
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
         title: const Text('Опитування', style: TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: true,
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
         actions: const [UserProfileButton()],
       ),
       body: Column(
@@ -165,24 +161,25 @@ class _PollsScreenState extends ConsumerState<PollsScreen> {
   }
 
   Widget _buildEmptyState() {
+    final theme = Theme.of(context);
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.poll_outlined, size: 64, color: Colors.grey.shade300),
+          Icon(Icons.poll_outlined, size: 64, color: theme.colorScheme.outlineVariant),
           const SizedBox(height: 16),
           Text(
             'Немає опитувань',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
-              color: Colors.grey.shade600,
+              color: theme.colorScheme.onSurface,
             ),
           ),
           const SizedBox(height: 8),
           Text(
             'За обраним фільтром нічого не знайдено',
-            style: TextStyle(color: Colors.grey.shade500),
+            style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
           ),
         ],
       ),
@@ -196,13 +193,14 @@ class _PollCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final isLocallyExpired = poll.expiresAt != null && poll.expiresAt!.isBefore(DateTime.now());
     final isClosed = poll.status != 'PUBLISHED' || isLocallyExpired; 
     final isVoted = poll.userVotedOptionId != null;
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.colorScheme.surfaceContainer,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
@@ -211,7 +209,7 @@ class _PollCard extends StatelessWidget {
             offset: const Offset(0, 4),
           ),
         ],
-        border: Border.all(color: Colors.grey.shade100),
+        border: Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
       ),
       clipBehavior: Clip.antiAlias,
       child: Material(
@@ -235,10 +233,10 @@ class _PollCard extends StatelessWidget {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                             decoration: BoxDecoration(
-                              color: isClosed ? Colors.grey.shade100 : Colors.blue.shade50,
+                              color: isClosed ? theme.colorScheme.surfaceContainerHighest : theme.colorScheme.primaryContainer,
                               borderRadius: BorderRadius.circular(30),
                               border: Border.all(
-                                color: isClosed ? Colors.grey.shade300 : Colors.blue.shade200,
+                                color: isClosed ? theme.colorScheme.outlineVariant : theme.colorScheme.primary.withValues(alpha: 0.3),
                               ),
                             ),
                             child: Row(
@@ -247,14 +245,14 @@ class _PollCard extends StatelessWidget {
                                 Icon(
                                   isClosed ? Icons.lock_outline : Icons.poll_outlined,
                                   size: 14,
-                                  color: isClosed ? Colors.grey.shade700 : Colors.blue.shade700,
+                                  color: isClosed ? theme.colorScheme.onSurfaceVariant : theme.colorScheme.onPrimaryContainer,
                                 ),
                                 const SizedBox(width: 6),
                                 Text(
                                   isClosed ? 'Завершено' : 'Активне',
                                   style: TextStyle(
                                     fontSize: 12,
-                                    color: isClosed ? Colors.grey.shade700 : Colors.blue.shade700,
+                                    color: isClosed ? theme.colorScheme.onSurfaceVariant : theme.colorScheme.onPrimaryContainer,
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
@@ -265,20 +263,20 @@ class _PollCard extends StatelessWidget {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                               decoration: BoxDecoration(
-                                color: Colors.orange.shade50,
+                                color: theme.colorScheme.tertiaryContainer,
                                 borderRadius: BorderRadius.circular(30),
-                                border: Border.all(color: Colors.orange.shade200),
+                                border: Border.all(color: theme.colorScheme.tertiary.withValues(alpha: 0.3)),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.timer_outlined, size: 14, color: Colors.orange.shade700),
+                                  Icon(Icons.timer_outlined, size: 14, color: theme.colorScheme.onTertiaryContainer),
                                   const SizedBox(width: 4),
                                   Text(
                                     DateFormat('dd.MM HH:mm').format(poll.expiresAt!.toLocal()),
                                     style: TextStyle(
                                       fontSize: 12,
-                                      color: Colors.orange.shade700,
+                                      color: theme.colorScheme.onTertiaryContainer,
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
@@ -292,7 +290,7 @@ class _PollCard extends StatelessWidget {
                     Text(
                       DateFormat('dd MMM yyyy').format(poll.createdAt.toLocal()),
                       style: TextStyle(
-                        color: Colors.grey.shade500,
+                        color: theme.colorScheme.onSurfaceVariant,
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
                       ),
@@ -302,11 +300,11 @@ class _PollCard extends StatelessWidget {
                 const SizedBox(height: 16),
                 Text(
                   poll.title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                     height: 1.3,
-                    color: Colors.black87,
+                    color: theme.colorScheme.onSurface,
                   ),
                 ),
                 if (poll.description != null && poll.description!.isNotEmpty) ...[
@@ -316,14 +314,14 @@ class _PollCard extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: Colors.grey.shade600,
+                      color: theme.colorScheme.onSurfaceVariant,
                       height: 1.4,
                       fontSize: 14,
                     ),
                   ),
                 ],
                 const SizedBox(height: 16),
-                Divider(color: Colors.grey.shade100, height: 1),
+                Divider(color: theme.colorScheme.outlineVariant, height: 1),
                 const SizedBox(height: 16),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -333,10 +331,10 @@ class _PollCard extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: Colors.grey.shade50,
+                            color: theme.colorScheme.surfaceContainerHighest,
                             borderRadius: BorderRadius.circular(10),
                           ),
-                          child: Icon(Icons.people_alt_outlined, size: 18, color: Colors.grey.shade600),
+                          child: Icon(Icons.people_alt_outlined, size: 18, color: theme.colorScheme.onSurfaceVariant),
                         ),
                         const SizedBox(width: 12),
                         Column(
@@ -344,13 +342,13 @@ class _PollCard extends StatelessWidget {
                           children: [
                             Text(
                               'Учасників',
-                              style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                              style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurfaceVariant),
                             ),
                             Text(
                               '${poll.totalVotes}',
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
-                                color: Colors.grey.shade800,
+                                color: theme.colorScheme.onSurface,
                                 fontSize: 14,
                               ),
                             ),
@@ -362,17 +360,17 @@ class _PollCard extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         decoration: BoxDecoration(
-                          color: Colors.green.shade50,
+                          color: Colors.green.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: Row(
+                        child: const Row(
                           children: [
-                            Icon(Icons.check_circle, color: Colors.green.shade600, size: 16),
-                            const SizedBox(width: 6),
+                            Icon(Icons.check_circle, color: Colors.green, size: 16),
+                            SizedBox(width: 6),
                             Text(
-                              'Проголосовано',
+                              'Голос враховано',
                               style: TextStyle(
-                                color: Colors.green.shade700,
+                                color: Colors.green,
                                 fontWeight: FontWeight.w600,
                                 fontSize: 13,
                               ),
@@ -381,7 +379,7 @@ class _PollCard extends StatelessWidget {
                         ),
                       )
                     else if (!isClosed)
-                      Icon(Icons.arrow_forward_ios, size: 16, color: Colors.blue.shade300),
+                      Icon(Icons.arrow_forward_ios, size: 16, color: theme.colorScheme.primary),
                   ],
                 ),
               ],
