@@ -13,6 +13,9 @@ import '../../features/chats/presentation/screens/chats_screen.dart';
 import '../../features/chats/presentation/screens/chat_detail_screen.dart';
 import '../../features/chats/presentation/screens/chat_info_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
+import '../../features/documents/presentation/screens/documents_screen.dart';
+import '../../features/documents/presentation/screens/document_pdf_screen.dart';
+import '../../features/documents/data/models/document_models.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   // Використовуємо ValueNotifier, щоб GoRouter реагував на зміни без перестворення самого себе
@@ -84,7 +87,16 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: '/documents',
-                builder: (context, state) => const Scaffold(body: Center(child: Text('Документи'))),
+                builder: (context, state) => const DocumentsScreen(),
+                routes: [
+                  GoRoute(
+                    path: 'view',
+                    builder: (context, state) {
+                      final document = state.extra as DocumentModel;
+                      return DocumentPdfScreen(document: document);
+                    },
+                  ),
+                ],
               ),
             ],
           ),
