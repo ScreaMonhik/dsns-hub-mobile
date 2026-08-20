@@ -18,11 +18,13 @@ class ChatSocketService {
   final _messageUpdatedController = StreamController<ChatMessage>.broadcast();
   final _messageDeletedController = StreamController<ChatMessage>.broadcast();
   final _messagesReadController = StreamController<Map<String, dynamic>>.broadcast();
+  final _exceptionController = StreamController<String>.broadcast();
 
   Stream<ChatMessage> get onNewMessage => _messageController.stream;
   Stream<ChatMessage> get onMessageUpdated => _messageUpdatedController.stream;
   Stream<ChatMessage> get onMessageDeleted => _messageDeletedController.stream;
   Stream<Map<String, dynamic>> get onMessagesRead => _messagesReadController.stream;
+  Stream<String> get onException => _exceptionController.stream;
 
   ChatSocketService(this._ref);
 
@@ -56,6 +58,12 @@ class ChatSocketService {
 
     _socket!.on('messagesRead', (data) {
       if (data != null) _messagesReadController.add(Map<String, dynamic>.from(data));
+    });
+
+    _socket!.on('exception', (data) {
+      if (data != null && data['message'] != null) {
+        _exceptionController.add(data['message'].toString());
+      }
     });
   }
 

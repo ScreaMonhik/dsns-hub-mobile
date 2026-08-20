@@ -72,7 +72,7 @@ class NewsCard extends StatelessWidget {
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
-                            article.category!.name,
+                            article.category?.name ?? 'Без категорії',
                             style: theme.textTheme.labelSmall?.copyWith(
                               color: theme.colorScheme.onPrimaryContainer,
                               fontWeight: FontWeight.bold,
@@ -82,7 +82,9 @@ class NewsCard extends StatelessWidget {
                       else
                         const SizedBox.shrink(),
                       Text(
-                        DateFormat('dd MMM yyyy, HH:mm').format(article.createdAt.toLocal()),
+                        article.createdAt != null 
+                            ? DateFormat('dd MMM yyyy, HH:mm').format(article.createdAt!.toLocal())
+                            : 'Дата не вказана',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
@@ -91,7 +93,7 @@ class NewsCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    article.title,
+                    article.title ?? 'Без назви',
                     style: theme.textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.bold,
                       height: 1.2,
@@ -101,14 +103,15 @@ class NewsCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   // Using TipTap extractor to display clean text
-                  Text(
-                    TipTapHelper.extractPlainText(article.content),
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
+                  if (article.content != null && article.content!.isNotEmpty)
+                    Text(
+                      TipTapHelper.extractPlainText(article.content!),
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                  ),
                   const SizedBox(height: 16),
                   Divider(color: theme.colorScheme.outlineVariant),
                   const SizedBox(height: 4),
@@ -119,23 +122,23 @@ class NewsCard extends StatelessWidget {
                         children: [
                           _buildActionButton(
                             context: context,
-                            icon: article.votes.any((v) => v.voteType == 'UPVOTE' && v.userId == currentUserId) 
+                            icon: article.currentUserVote == 'UPVOTE' 
                                 ? Icons.thumb_up 
                                 : Icons.thumb_up_alt_outlined,
                             label: '${article.upvotes > 0 ? article.upvotes : (article.count?.likes ?? 0)}',
                             onTap: onLike,
-                            isActive: article.votes.any((v) => v.voteType == 'UPVOTE' && v.userId == currentUserId),
+                            isActive: article.currentUserVote == 'UPVOTE',
                             activeColor: Colors.green.shade600,
                           ),
                           const SizedBox(width: 16),
                           _buildActionButton(
                             context: context,
-                            icon: article.votes.any((v) => v.voteType == 'DOWNVOTE' && v.userId == currentUserId) 
+                            icon: article.currentUserVote == 'DOWNVOTE' 
                                 ? Icons.thumb_down 
                                 : Icons.thumb_down_alt_outlined,
                             label: '${article.downvotes > 0 ? article.downvotes : (article.count?.dislikes ?? 0)}',
                             onTap: onDislike,
-                            isActive: article.votes.any((v) => v.voteType == 'DOWNVOTE' && v.userId == currentUserId),
+                            isActive: article.currentUserVote == 'DOWNVOTE',
                             activeColor: Colors.red.shade600,
                           ),
                         ],

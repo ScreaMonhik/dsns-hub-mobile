@@ -46,7 +46,12 @@ class NewsListNotifier extends AsyncNotifier<List<NewsArticle>> {
       categoryId: categoryId,
     );
     
-    _hasMore = response.meta.page < response.meta.lastPage;
+    if (response.meta != null) {
+      _hasMore = response.meta!.page < response.meta!.lastPage;
+    } else {
+      _hasMore = response.data.length >= 10;
+    }
+    
     return response.data;
   }
 

@@ -147,7 +147,7 @@ class _NewsScreenState extends ConsumerState<NewsScreen> {
                 ...categories.map((category) {
                   final isSelected = selectedCategoryId == category.id;
                   return FilterChoiceChip(
-                    label: category.name,
+                    label: category.name ?? 'Без назви',
                     isSelected: isSelected,
                     onSelected: () {
                       if (!isSelected) {

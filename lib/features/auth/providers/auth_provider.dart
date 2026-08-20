@@ -53,9 +53,10 @@ class AuthNotifier extends StateNotifier<AsyncValue<bool>> {
   Future<void> login(String email, String password) async {
     state = const AsyncValue.loading();
     try {
-      final token = await _repository.login(email, password);
-      await _storage.write(key: 'jwt_token', value: token);
-      _ref.read(currentTokenProvider.notifier).state = token;
+      final tokens = await _repository.login(email, password);
+      await _storage.write(key: 'jwt_token', value: tokens['accessToken']);
+      await _storage.write(key: 'refresh_token', value: tokens['refreshToken']);
+      _ref.read(currentTokenProvider.notifier).state = tokens['accessToken'];
       state = const AsyncValue.data(true);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
@@ -64,9 +65,14 @@ class AuthNotifier extends StateNotifier<AsyncValue<bool>> {
 
   Future<void> logout() async {
     try {
+      final token = await _storage.read(key: 'jwt_token');
+      if (token != null) {
+        await _repository.logout(token);
+      }
       await _storage.delete(key: 'jwt_token');
+      await _storage.delete(key: 'refresh_token');
     } catch (_) {
-      // Ігноруємо системні краші стораджа, щоб гарантовано змінити стейт
+      // Ігноруємо системні краші стораджа
     }
     _ref.read(currentTokenProvider.notifier).state = null;
     state = const AsyncValue.data(false);

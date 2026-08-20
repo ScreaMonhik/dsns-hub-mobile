@@ -120,7 +120,7 @@ class _NewsDetailScreenState extends ConsumerState<NewsDetailScreen> {
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
-                                article.category!.name,
+                                article.category?.name ?? 'Без категорії',
                                 style: theme.textTheme.labelMedium?.copyWith(
                                   color: theme.colorScheme.onPrimaryContainer,
                                   fontWeight: FontWeight.bold,
@@ -130,7 +130,9 @@ class _NewsDetailScreenState extends ConsumerState<NewsDetailScreen> {
                           else
                             const SizedBox.shrink(),
                           Text(
-                            DateFormat('dd MMMM yyyy, HH:mm').format(article.createdAt.toLocal()),
+                            article.createdAt != null 
+                                ? DateFormat('dd MMMM yyyy, HH:mm').format(article.createdAt!.toLocal())
+                                : 'Дата не вказана',
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: theme.colorScheme.onSurfaceVariant,
                               fontWeight: FontWeight.w500,
@@ -140,7 +142,7 @@ class _NewsDetailScreenState extends ConsumerState<NewsDetailScreen> {
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        article.title,
+                        article.title ?? 'Без назви',
                         style: theme.textTheme.headlineSmall?.copyWith(
                           fontWeight: FontWeight.bold,
                           height: 1.3,
@@ -159,7 +161,8 @@ class _NewsDetailScreenState extends ConsumerState<NewsDetailScreen> {
                         const SizedBox(height: 24),
                       ],
                       // Рендерер JSON від TipTap
-                      TipTapRenderer(jsonContent: article.content),
+                      if (article.content != null)
+                        TipTapRenderer(jsonContent: article.content!),
                       
                       const SizedBox(height: 32),
                       const Divider(),
@@ -168,11 +171,11 @@ class _NewsDetailScreenState extends ConsumerState<NewsDetailScreen> {
                       Row(
                         children: [
                           _buildInteractionButton(
-                            icon: article.votes.any((v) => v.voteType == 'UPVOTE' && v.userId == currentUserId) 
+                            icon: article.currentUserVote == 'UPVOTE' 
                                 ? Icons.thumb_up 
                                 : Icons.thumb_up_alt_outlined,
                             label: '${article.upvotes > 0 ? article.upvotes : (article.count?.likes ?? 0)}',
-                            isActive: article.votes.any((v) => v.voteType == 'UPVOTE' && v.userId == currentUserId),
+                            isActive: article.currentUserVote == 'UPVOTE',
                             activeColor: Colors.green.shade600,
                             onTap: () async {
                               try {
@@ -186,11 +189,11 @@ class _NewsDetailScreenState extends ConsumerState<NewsDetailScreen> {
                           ),
                           const SizedBox(width: 16),
                           _buildInteractionButton(
-                            icon: article.votes.any((v) => v.voteType == 'DOWNVOTE' && v.userId == currentUserId) 
+                            icon: article.currentUserVote == 'DOWNVOTE' 
                                 ? Icons.thumb_down 
                                 : Icons.thumb_down_alt_outlined,
                             label: '${article.downvotes > 0 ? article.downvotes : (article.count?.dislikes ?? 0)}',
-                            isActive: article.votes.any((v) => v.voteType == 'DOWNVOTE' && v.userId == currentUserId),
+                            isActive: article.currentUserVote == 'DOWNVOTE',
                             activeColor: Colors.red.shade600,
                             onTap: () async {
                               try {
@@ -296,12 +299,12 @@ class _NewsDetailScreenState extends ConsumerState<NewsDetailScreen> {
         CircleAvatar(
           radius: 18,
           backgroundColor: theme.colorScheme.primaryContainer,
-          backgroundImage: comment.author.avatarUrl != null 
-            ? NetworkImage(comment.author.avatarUrl!) 
+          backgroundImage: comment.author?.avatarUrl != null 
+            ? NetworkImage(comment.author!.avatarUrl!) 
             : null,
-          child: comment.author.avatarUrl == null 
+          child: comment.author?.avatarUrl == null 
             ? Text(
-                comment.author.firstName[0],
+                comment.author?.firstName?.isNotEmpty == true ? comment.author!.firstName![0].toUpperCase() : '?',
                 style: TextStyle(color: theme.colorScheme.onPrimaryContainer, fontWeight: FontWeight.bold),
               )
             : null,
@@ -325,12 +328,12 @@ class _NewsDetailScreenState extends ConsumerState<NewsDetailScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '${comment.author.firstName} ${comment.author.lastName}',
+                      '${comment.author?.firstName ?? 'Гість'} ${comment.author?.lastName ?? ''}'.trim(),
                       style: theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      comment.content,
+                      comment.content ?? '',
                       style: theme.textTheme.bodyMedium?.copyWith(height: 1.3),
                     ),
                   ],
@@ -340,7 +343,9 @@ class _NewsDetailScreenState extends ConsumerState<NewsDetailScreen> {
               Padding(
                 padding: const EdgeInsets.only(left: 4.0),
                 child: Text(
-                  DateFormat('dd MMM HH:mm').format(comment.createdAt.toLocal()),
+                  comment.createdAt != null 
+                      ? DateFormat('dd MMM HH:mm').format(comment.createdAt!.toLocal())
+                      : '',
                   style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline),
                 ),
               ),

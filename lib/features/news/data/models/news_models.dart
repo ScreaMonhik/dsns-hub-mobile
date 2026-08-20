@@ -7,8 +7,8 @@ part 'news_models.g.dart';
 abstract class NewsAuthor with _$NewsAuthor {
   const factory NewsAuthor({
     required String id,
-    required String firstName,
-    required String lastName,
+    String? firstName,
+    String? lastName,
     String? avatarUrl,
   }) = _NewsAuthor;
 
@@ -19,8 +19,8 @@ abstract class NewsAuthor with _$NewsAuthor {
 abstract class NewsCategory with _$NewsCategory {
   const factory NewsCategory({
     required String id,
-    required String name,
-    required int orderIndex,
+    String? name,
+    int? orderIndex,
   }) = _NewsCategory;
 
   factory NewsCategory.fromJson(Map<String, dynamic> json) => _$NewsCategoryFromJson(json);
@@ -30,7 +30,7 @@ abstract class NewsCategory with _$NewsCategory {
 abstract class NewsDepartment with _$NewsDepartment {
   const factory NewsDepartment({
     required String id,
-    required String name,
+    String? name,
   }) = _NewsDepartment;
 
   factory NewsDepartment.fromJson(Map<String, dynamic> json) => _$NewsDepartmentFromJson(json);
@@ -51,9 +51,9 @@ abstract class NewsCounts with _$NewsCounts {
 abstract class NewsComment with _$NewsComment {
   const factory NewsComment({
     required String id,
-    required String content,
-    required DateTime createdAt,
-    required NewsAuthor author,
+    String? content,
+    DateTime? createdAt,
+    NewsAuthor? author,
   }) = _NewsComment;
 
   factory NewsComment.fromJson(Map<String, dynamic> json) => _$NewsCommentFromJson(json);
@@ -62,9 +62,9 @@ abstract class NewsComment with _$NewsComment {
 @freezed
 abstract class NewsVote with _$NewsVote {
   const factory NewsVote({
-    required String voteType,
-    required String userId,
-    required String newsId,
+    String? voteType,
+    String? userId,
+    String? newsId,
   }) = _NewsVote;
 
   factory NewsVote.fromJson(Map<String, dynamic> json) => _$NewsVoteFromJson(json);
@@ -74,14 +74,14 @@ abstract class NewsVote with _$NewsVote {
 abstract class NewsArticle with _$NewsArticle {
   const factory NewsArticle({
     required String id,
-    required String title,
-    required String content,
+    String? title,
+    String? content,
     String? imageUrl,
-    required String status,
+    String? status,
     String? categoryId,
-    required DateTime createdAt,
-    required String authorId,
-    required NewsAuthor author,
+    DateTime? createdAt,
+    String? authorId,
+    NewsAuthor? author,
     NewsCategory? category,
     @Default([]) List<NewsDepartment> departments,
     @JsonKey(name: '_count') NewsCounts? count,
@@ -89,6 +89,7 @@ abstract class NewsArticle with _$NewsArticle {
     @Default([]) List<NewsVote> votes,
     @Default(0) int upvotes,
     @Default(0) int downvotes,
+    String? currentUserVote,
   }) = _NewsArticle;
 
   factory NewsArticle.fromJson(Map<String, dynamic> json) => _$NewsArticleFromJson(json);
@@ -97,9 +98,10 @@ abstract class NewsArticle with _$NewsArticle {
 @freezed
 abstract class NewsPaginationMeta with _$NewsPaginationMeta {
   const factory NewsPaginationMeta({
-    required int total,
-    required int page,
-    required int lastPage,
+    @Default(0) int total,
+    @Default(1) int page,
+    @Default(1) int lastPage,
+    @Default(10) int limit,
   }) = _NewsPaginationMeta;
 
   factory NewsPaginationMeta.fromJson(Map<String, dynamic> json) => _$NewsPaginationMetaFromJson(json);
@@ -108,8 +110,8 @@ abstract class NewsPaginationMeta with _$NewsPaginationMeta {
 @freezed
 abstract class NewsPaginatedResponse with _$NewsPaginatedResponse {
   const factory NewsPaginatedResponse({
-    required List<NewsArticle> data,
-    required NewsPaginationMeta meta,
+    @Default([]) List<NewsArticle> data,
+    NewsPaginationMeta? meta,
   }) = _NewsPaginatedResponse;
 
   factory NewsPaginatedResponse.fromJson(Map<String, dynamic> json) => _$NewsPaginatedResponseFromJson(json);
