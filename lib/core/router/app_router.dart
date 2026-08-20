@@ -16,6 +16,10 @@ import '../../features/profile/presentation/screens/profile_screen.dart';
 import '../../features/documents/presentation/screens/documents_screen.dart';
 import '../../features/documents/presentation/screens/document_pdf_screen.dart';
 import '../../features/documents/data/models/document_models.dart';
+import '../../features/projects/presentation/screens/projects_screen.dart';
+import '../../features/projects/presentation/screens/project_detail_screen.dart';
+import '../../features/projects/presentation/screens/project_pdf_screen.dart';
+import '../../features/projects/data/models/project_models.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   // Використовуємо ValueNotifier, щоб GoRouter реагував на зміни без перестворення самого себе
@@ -104,7 +108,25 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: '/projects',
-                builder: (context, state) => const Scaffold(body: Center(child: Text('Проєкти'))),
+                builder: (context, state) => const ProjectsScreen(),
+                routes: [
+                  GoRoute(
+                    path: ':id',
+                    builder: (context, state) {
+                      final projectId = state.pathParameters['id']!;
+                      return ProjectDetailScreen(projectId: projectId);
+                    },
+                    routes: [
+                      GoRoute(
+                        path: 'pdf',
+                        builder: (context, state) {
+                          final project = state.extra as ProjectModel;
+                          return ProjectPdfScreen(project: project);
+                        },
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ],
           ),
