@@ -184,26 +184,13 @@ class _PollDetailScreenState extends ConsumerState<PollDetailScreen> {
   }
 
   Widget _buildBottomActions(Poll poll, bool hasVoted, bool isVotingActive) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainer,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.5)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          )
-        ],
-      ),
-      child: isVotingActive
-          ? Row(
+    return isVotingActive
+        ? IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 if (_isEditing) ...[
                   Expanded(
-                    flex: 1,
                     child: OutlinedButton(
                       onPressed: _isSubmitting
                           ? null
@@ -215,13 +202,12 @@ class _PollDetailScreenState extends ConsumerState<PollDetailScreen> {
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
-                      child: const Text('Скасувати'),
+                      child: const Text('Скасувати', style: TextStyle(fontSize: 16)),
                     ),
                   ),
                   const SizedBox(width: 12),
                 ],
                 Expanded(
-                  flex: 2,
                   child: FilledButton(
                     onPressed: (_pendingOptionId == null || _isSubmitting)
                         ? null
@@ -240,23 +226,23 @@ class _PollDetailScreenState extends ConsumerState<PollDetailScreen> {
                   ),
                 ),
               ],
-            )
-          : SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () => setState(() {
-                  _isEditing = true;
-                  _pendingOptionId = poll.userVotedOptionId;
-                }),
-                icon: const Icon(Icons.edit),
-                label: const Text('Змінити голос', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
+            ),
+          )
+        : SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => setState(() {
+                _isEditing = true;
+                _pendingOptionId = poll.userVotedOptionId;
+              }),
+              icon: const Icon(Icons.edit),
+              label: const Text('Змінити голос', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
             ),
-    );
+          );
   }
 
   Widget _buildOptionCard(Poll poll, PollOption option, bool isVotingActive, bool isClosed, int maxVotes) {
@@ -265,7 +251,9 @@ class _PollDetailScreenState extends ConsumerState<PollDetailScreen> {
         ? _pendingOptionId == option.id 
         : poll.userVotedOptionId == option.id;
         
+    final bool showResults = !isVotingActive || poll.userVotedOptionId != null || isClosed;
     final double percentage = poll.totalVotes > 0 ? (option.votes / poll.totalVotes) : 0.0;
+    final double displayPercentage = showResults ? percentage : 0.0;
     final String percentageText = '${(percentage * 100).toStringAsFixed(1)}%';
     
     final isWinner = isClosed && option.votes == maxVotes && maxVotes > 0;
@@ -311,7 +299,7 @@ class _PollDetailScreenState extends ConsumerState<PollDetailScreen> {
               Positioned.fill(
                 child: FractionallySizedBox(
                   alignment: Alignment.centerLeft,
-                  widthFactor: percentage,
+                  widthFactor: displayPercentage,
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 600),
                     curve: Curves.easeOutCubic,
@@ -343,7 +331,7 @@ class _PollDetailScreenState extends ConsumerState<PollDetailScreen> {
                       ),
                     ),
                     const SizedBox(width: 12),
-                    if (!isVotingActive || poll.userVotedOptionId != null || isClosed) 
+                    if (showResults) 
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
