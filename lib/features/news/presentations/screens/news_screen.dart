@@ -66,7 +66,7 @@ class _NewsScreenState extends ConsumerState<NewsScreen> {
                   onRefresh: _onRefresh,
                   child: ListView.builder(
                     controller: _scrollController,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    padding: EdgeInsets.fromLTRB(16, 12, 16, 100 + MediaQuery.paddingOf(context).bottom),
                     itemCount: articles.length + 1, // +1 for loading indicator at the bottom
                     itemBuilder: (context, index) {
                       if (index == articles.length) {

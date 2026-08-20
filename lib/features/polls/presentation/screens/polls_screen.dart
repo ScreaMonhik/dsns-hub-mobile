@@ -93,7 +93,7 @@ class _PollsScreenState extends ConsumerState<PollsScreen> {
                 return RefreshIndicator(
                   onRefresh: () => ref.read(pollsProvider.notifier).fetchPolls(),
                   child: ListView.separated(
-                    padding: const EdgeInsets.only(top: 8, left: 16, right: 16, bottom: 24),
+                    padding: EdgeInsets.only(top: 8, left: 16, right: 16, bottom: 100 + MediaQuery.paddingOf(context).bottom),
                     itemCount: filteredPolls.length,
                     separatorBuilder: (_, __) => const SizedBox(height: 12),
                     itemBuilder: (context, index) => _PollCard(poll: filteredPolls[index]),

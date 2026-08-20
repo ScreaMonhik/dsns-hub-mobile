@@ -29,6 +29,7 @@ class ChatsScreen extends ConsumerWidget {
           return RefreshIndicator(
             onRefresh: () async => ref.refresh(chatsListProvider),
             child: ListView.separated(
+              padding: EdgeInsets.only(bottom: 100 + MediaQuery.paddingOf(context).bottom),
               itemCount: groups.length,
               separatorBuilder: (_, __) => const Divider(height: 1, indent: 72),
               itemBuilder: (context, index) {
