@@ -172,87 +172,90 @@ class _PollDetailScreenState extends ConsumerState<PollDetailScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 100), // Відступ для нижньої панелі з кнопками
+            if (!isClosed) ...[
+              const SizedBox(height: 24),
+              _buildBottomActions(poll, hasVoted, isVotingActive),
+            ],
+            SizedBox(height: 100 + MediaQuery.paddingOf(context).bottom),
           ],
         ),
       ),
-      bottomSheet: isClosed ? null : _buildBottomActions(poll, hasVoted, isVotingActive),
     );
   }
 
   Widget _buildBottomActions(Poll poll, bool hasVoted, bool isVotingActive) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Theme.of(context).scaffoldBackgroundColor,
+        color: Theme.of(context).colorScheme.surfaceContainer,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.5)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 10,
-            offset: const Offset(0, -5),
+            offset: const Offset(0, 4),
           )
         ],
       ),
-      child: SafeArea(
-        child: isVotingActive
-            ? Row(
-                children: [
-                  if (_isEditing) ...[
-                    Expanded(
-                      flex: 1,
-                      child: OutlinedButton(
-                        onPressed: _isSubmitting
-                            ? null
-                            : () => setState(() {
-                                  _isEditing = false;
-                                  _pendingOptionId = null;
-                                }),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                        child: const Text('Скасувати'),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                  ],
+      child: isVotingActive
+          ? Row(
+              children: [
+                if (_isEditing) ...[
                   Expanded(
-                    flex: 2,
-                    child: FilledButton(
-                      onPressed: (_pendingOptionId == null || _isSubmitting)
+                    flex: 1,
+                    child: OutlinedButton(
+                      onPressed: _isSubmitting
                           ? null
-                          : () => _submitVote(poll),
-                      style: FilledButton.styleFrom(
+                          : () => setState(() {
+                                _isEditing = false;
+                                _pendingOptionId = null;
+                              }),
+                      style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
-                      child: _isSubmitting
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                            )
-                          : const Text('Проголосувати', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      child: const Text('Скасувати'),
                     ),
                   ),
+                  const SizedBox(width: 12),
                 ],
-              )
-            : SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () => setState(() {
-                    _isEditing = true;
-                    _pendingOptionId = poll.userVotedOptionId;
-                  }),
-                  icon: const Icon(Icons.edit),
-                  label: const Text('Змінити голос', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                Expanded(
+                  flex: 2,
+                  child: FilledButton(
+                    onPressed: (_pendingOptionId == null || _isSubmitting)
+                        ? null
+                        : () => _submitVote(poll),
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: _isSubmitting
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          )
+                        : const Text('Проголосувати', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                   ),
                 ),
+              ],
+            )
+          : SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () => setState(() {
+                  _isEditing = true;
+                  _pendingOptionId = poll.userVotedOptionId;
+                }),
+                icon: const Icon(Icons.edit),
+                label: const Text('Змінити голос', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
               ),
-      ),
+            ),
     );
   }
 
