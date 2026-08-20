@@ -84,12 +84,24 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
             child: documentsState.when(
               data: (documents) {
                 if (documents.isEmpty) {
-                  return _buildEmptyState();
+                  return RefreshIndicator(
+                    onRefresh: _onRefresh,
+                    child: LayoutBuilder(
+                      builder: (context, constraints) => SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                          child: _buildEmptyState(),
+                        ),
+                      ),
+                    ),
+                  );
                 }
 
                 return RefreshIndicator(
                   onRefresh: _onRefresh,
                   child: ListView.builder(
+                    physics: const AlwaysScrollableScrollPhysics(),
                     controller: _scrollController,
                     padding: EdgeInsets.fromLTRB(16, 8, 16, 100 + MediaQuery.paddingOf(context).bottom),
                     itemCount: documents.length + 1,

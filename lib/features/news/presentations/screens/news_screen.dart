@@ -65,6 +65,7 @@ class _NewsScreenState extends ConsumerState<NewsScreen> {
                 return RefreshIndicator(
                   onRefresh: _onRefresh,
                   child: ListView.builder(
+                    physics: const AlwaysScrollableScrollPhysics(),
                     controller: _scrollController,
                     padding: EdgeInsets.fromLTRB(16, 12, 16, 100 + MediaQuery.paddingOf(context).bottom),
                     itemCount: articles.length + 1, // +1 for loading indicator at the bottom

@@ -87,12 +87,24 @@ class _PollsScreenState extends ConsumerState<PollsScreen> {
                 });
 
                 if (filteredPolls.isEmpty) {
-                  return _buildEmptyState();
+                  return RefreshIndicator(
+                    onRefresh: () async => ref.read(pollsProvider.notifier).fetchPolls(),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) => SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                          child: _buildEmptyState(),
+                        ),
+                      ),
+                    ),
+                  );
                 }
 
                 return RefreshIndicator(
-                  onRefresh: () => ref.read(pollsProvider.notifier).fetchPolls(),
+                  onRefresh: () async => ref.read(pollsProvider.notifier).fetchPolls(),
                   child: ListView.separated(
+                    physics: const AlwaysScrollableScrollPhysics(),
                     padding: EdgeInsets.only(top: 8, left: 16, right: 16, bottom: 100 + MediaQuery.paddingOf(context).bottom),
                     itemCount: filteredPolls.length,
                     separatorBuilder: (_, __) => const SizedBox(height: 12),
