@@ -6,6 +6,7 @@ import '../providers/document_providers.dart';
 import '../widgets/document_card.dart';
 import '../../../profile/presentation/widgets/user_profile_button.dart';
 import '../../../../core/presentation/widgets/shimmer_loading_list.dart';
+import '../../../../core/presentation/widgets/common_error_widget.dart';
 
 class DocumentsScreen extends ConsumerStatefulWidget {
   const DocumentsScreen({super.key});
@@ -129,23 +130,9 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
                 );
               },
               loading: () => const ShimmerLoadingList(),
-              error: (err, _) => Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24.0),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.error_outline, size: 48, color: Colors.red),
-                      const SizedBox(height: 16),
-                      Text('Помилка: $err', textAlign: TextAlign.center),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: _onRefresh,
-                        child: const Text('Оновити'),
-                      ),
-                    ],
-                  ),
-                ),
+              error: (err, _) => CommonErrorWidget(
+                error: err.toString(),
+                onRetry: _onRefresh,
               ),
             ),
           ),

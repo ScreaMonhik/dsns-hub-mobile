@@ -7,6 +7,7 @@ import '../providers/poll_provider.dart';
 import '../../data/models/poll_model.dart';
 import '../../../profile/presentation/widgets/user_profile_button.dart';
 import '../../../../core/presentation/widgets/shimmer_loading_list.dart';
+import '../../../../core/presentation/widgets/common_error_widget.dart';
 
 class PollsScreen extends ConsumerStatefulWidget {
   const PollsScreen({super.key});
@@ -114,18 +115,9 @@ class _PollsScreenState extends ConsumerState<PollsScreen> {
                 );
               },
               loading: () => const ShimmerLoadingList(),
-              error: (error, _) => Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text('Помилка: $error', textAlign: TextAlign.center),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: () => ref.read(pollsProvider.notifier).fetchPolls(),
-                      child: const Text('Оновити'),
-                    )
-                  ],
-                ),
+              error: (error, _) => CommonErrorWidget(
+                error: error.toString(),
+                onRetry: () => ref.read(pollsProvider.notifier).fetchPolls(),
               ),
             ),
           ),

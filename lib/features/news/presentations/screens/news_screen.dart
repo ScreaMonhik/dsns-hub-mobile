@@ -8,6 +8,7 @@ import '../widgets/news_card.dart';
 import '../../../profile/presentation/widgets/user_profile_button.dart';
 import '../../../auth/providers/auth_provider.dart';
 import '../../../../core/presentation/widgets/shimmer_loading_list.dart';
+import '../../../../core/presentation/widgets/common_error_widget.dart';
 
 class NewsScreen extends ConsumerStatefulWidget {
   const NewsScreen({super.key});
@@ -108,7 +109,10 @@ class _NewsScreenState extends ConsumerState<NewsScreen> {
                 );
               },
               loading: () => const ShimmerLoadingList(),
-              error: (error, stack) => _buildErrorState(error.toString()),
+              error: (error, stack) => CommonErrorWidget(
+                error: error.toString(),
+                onRetry: _onRefresh,
+              ),
             ),
           ),
         ],
@@ -199,34 +203,6 @@ class _NewsScreenState extends ConsumerState<NewsScreen> {
             child: const Text('Оновити'),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildErrorState(String error) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.error_outline, size: 48, color: Colors.red),
-            const SizedBox(height: 16),
-            Text(
-              'Сталася помилка при завантаженні новин',
-              style: Theme.of(context).textTheme.titleMedium,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            Text(error, style: const TextStyle(color: Colors.grey), textAlign: TextAlign.center),
-            const SizedBox(height: 24),
-            FilledButton.icon(
-              onPressed: _onRefresh,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Спробувати ще раз'),
-            ),
-          ],
-        ),
       ),
     );
   }

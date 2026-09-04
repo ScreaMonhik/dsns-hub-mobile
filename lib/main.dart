@@ -1,8 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/router/app_router.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'core/theme/theme_provider.dart';
 import 'core/presentation/widgets/offline_banner.dart';
+import 'core/providers/connectivity_provider.dart';
+import 'features/news/presentations/providers/news_providers.dart';
+import 'features/documents/presentation/providers/document_providers.dart';
+import 'features/projects/presentation/providers/project_providers.dart';
+import 'features/polls/presentation/providers/poll_provider.dart';
+import 'features/chats/presentation/providers/chat_providers.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,6 +23,20 @@ class DsnsHubApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
     final themeMode = ref.watch(themeProvider);
+
+    // Автоматичне оновлення всіх даних при відновленні інтернету
+    ref.listen<AsyncValue<List<ConnectivityResult>>>(connectivityProvider, (previous, next) {
+      final prevOffline = previous?.value?.contains(ConnectivityResult.none) ?? false;
+      final currentOffline = next.value?.contains(ConnectivityResult.none) ?? false;
+
+      if (prevOffline && !currentOffline && next.value != null && next.value!.isNotEmpty) {
+        ref.invalidate(newsListProvider);
+        ref.invalidate(documentsListProvider);
+        ref.invalidate(projectsListProvider);
+        ref.invalidate(pollsProvider);
+        ref.invalidate(chatsListProvider);
+      }
+    });
 
     return MaterialApp.router(
       title: 'DSNS Hub',

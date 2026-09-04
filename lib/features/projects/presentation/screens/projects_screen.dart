@@ -6,6 +6,7 @@ import '../providers/project_providers.dart';
 import '../widgets/project_card.dart';
 import '../../../profile/presentation/widgets/user_profile_button.dart';
 import '../../../../core/presentation/widgets/shimmer_loading_list.dart';
+import '../../../../core/presentation/widgets/common_error_widget.dart';
 
 class ProjectsScreen extends ConsumerStatefulWidget {
   const ProjectsScreen({super.key});
@@ -133,7 +134,10 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                 );
               },
               loading: () => const ShimmerLoadingList(),
-              error: (err, _) => Center(child: Text('Помилка: $err')),
+              error: (err, _) => CommonErrorWidget(
+                error: err.toString(),
+                onRetry: _onRefresh,
+              ),
             ),
           ),
         ],
