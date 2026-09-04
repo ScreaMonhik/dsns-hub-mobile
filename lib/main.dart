@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/date_symbol_data_local.dart';
+import 'package:intl/intl.dart' hide TextDirection;
 import 'core/router/app_router.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'core/theme/theme_provider.dart';
@@ -13,8 +16,13 @@ import 'features/chats/presentation/providers/chat_providers.dart';
 import 'core/security/app_lock_provider.dart';
 import 'core/presentation/widgets/app_lock_overlay.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize Ukrainian locale data for DateFormat
+  await initializeDateFormatting('uk', null);
+  Intl.defaultLocale = 'uk';
+  
   runApp(const ProviderScope(child: DsnsHubApp()));
 }
 
@@ -64,6 +72,15 @@ class _DsnsHubAppState extends ConsumerState<DsnsHubApp> {
 
     return MaterialApp.router(
       title: 'DSNS Hub',
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('uk', 'UA'),
+      ],
+      locale: const Locale('uk', 'UA'),
       themeMode: themeMode,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
