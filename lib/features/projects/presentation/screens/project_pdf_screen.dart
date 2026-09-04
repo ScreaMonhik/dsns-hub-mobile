@@ -2,6 +2,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:printing/printing.dart';
+import 'package:pdf/pdf.dart';
 import '../../data/models/project_models.dart';
 import '../../data/repositories/project_repository.dart';
 
@@ -147,6 +150,28 @@ class _ProjectPdfScreenState extends ConsumerState<ProjectPdfScreen> {
               });
             },
           ),
+          if (_localPath != null && !_isLoading && !_isSearchMode) ...[
+            IconButton(
+              icon: const Icon(Icons.share_outlined),
+              onPressed: () {
+                Share.shareXFiles(
+                  [XFile(_localPath!)],
+                  text: widget.project.title ?? 'Документ проєкту',
+                );
+              },
+            ),
+            IconButton(
+              icon: const Icon(Icons.print_outlined),
+              onPressed: () async {
+                final file = File(_localPath!);
+                final bytes = await file.readAsBytes();
+                await Printing.layoutPdf(
+                  onLayout: (PdfPageFormat format) async => bytes,
+                  name: widget.project.title ?? 'Project_Document',
+                );
+              },
+            ),
+          ],
         ],
       ),
       body: _buildBody(),
