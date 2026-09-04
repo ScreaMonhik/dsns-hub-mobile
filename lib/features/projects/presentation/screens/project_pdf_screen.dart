@@ -1,6 +1,7 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter_pdfview/flutter_pdfview.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import '../../data/models/project_models.dart';
 import '../../data/repositories/project_repository.dart';
 
@@ -18,10 +19,29 @@ class _ProjectPdfScreenState extends ConsumerState<ProjectPdfScreen> {
   bool _isLoading = true;
   String? _errorMessage;
 
+  final PdfViewerController _pdfViewerController = PdfViewerController();
+  final TextEditingController _searchController = TextEditingController();
+  PdfTextSearchResult _searchResult = PdfTextSearchResult();
+  bool _isSearchMode = false;
+
   @override
   void initState() {
     super.initState();
     _downloadAndOpenPdf();
+  }
+
+  @override
+  void dispose() {
+    _searchResult.removeListener(_onSearchResultUpdated);
+    _pdfViewerController.dispose();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _onSearchResultUpdated() {
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   Future<void> _downloadAndOpenPdf() async {
@@ -50,11 +70,84 @@ class _ProjectPdfScreenState extends ConsumerState<ProjectPdfScreen> {
     }
   }
 
+  void _performSearch(String query) async {
+    if (query.isEmpty) {
+      _searchResult.clear();
+      setState(() {});
+      return;
+    }
+    
+    _searchResult.removeListener(_onSearchResultUpdated);
+    _searchResult = await _pdfViewerController.searchText(query);
+    _searchResult.addListener(_onSearchResultUpdated);
+    setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.project.title ?? 'Документ проєкту', style: const TextStyle(fontSize: 18)),
+        title: _isSearchMode
+            ? TextField(
+                controller: _searchController,
+                autofocus: true,
+                style: const TextStyle(fontSize: 16),
+                decoration: InputDecoration(
+                  hintText: 'Пошук по тексту...',
+                  border: InputBorder.none,
+                  suffixIcon: _searchController.text.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear, size: 20),
+                          onPressed: () {
+                            _searchController.clear();
+                            _searchResult.clear();
+                            setState(() {});
+                          },
+                        )
+                      : null,
+                ),
+                textInputAction: TextInputAction.search,
+                onChanged: (_) => setState(() {}),
+                onSubmitted: _performSearch,
+              )
+            : Text(widget.project.title ?? 'Документ проєкту', style: const TextStyle(fontSize: 18)),
+        actions: [
+          if (_isSearchMode && _searchResult.hasResult) ...[
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                child: Text(
+                  '${_searchResult.currentInstanceIndex}/${_searchResult.totalInstanceCount}',
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.keyboard_arrow_up),
+              onPressed: () {
+                _searchResult.previousInstance();
+              },
+            ),
+            IconButton(
+              icon: const Icon(Icons.keyboard_arrow_down),
+              onPressed: () {
+                _searchResult.nextInstance();
+              },
+            ),
+          ],
+          IconButton(
+            icon: Icon(_isSearchMode ? Icons.close : Icons.search),
+            onPressed: () {
+              setState(() {
+                _isSearchMode = !_isSearchMode;
+                if (!_isSearchMode) {
+                  _searchResult.clear();
+                  _searchController.clear();
+                }
+              });
+            },
+          ),
+        ],
       ),
       body: _buildBody(),
     );
@@ -93,10 +186,11 @@ class _ProjectPdfScreenState extends ConsumerState<ProjectPdfScreen> {
     }
 
     if (_localPath != null) {
-      return PDFView(
-        filePath: _localPath!,
-        enableSwipe: true,
-        fitPolicy: FitPolicy.WIDTH,
+      return SfPdfViewer.file(
+        File(_localPath!),
+        controller: _pdfViewerController,
+        canShowScrollHead: false,
+        canShowScrollStatus: false,
       );
     }
 
