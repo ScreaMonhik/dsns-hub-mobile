@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -19,6 +20,8 @@ class NewsScreen extends ConsumerStatefulWidget {
 
 class _NewsScreenState extends ConsumerState<NewsScreen> {
   final ScrollController _scrollController = ScrollController();
+  final TextEditingController _searchController = TextEditingController();
+  Timer? _debounce;
 
   @override
   void initState() {
@@ -30,6 +33,8 @@ class _NewsScreenState extends ConsumerState<NewsScreen> {
   void dispose() {
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
+    _searchController.dispose();
+    _debounce?.cancel();
     super.dispose();
   }
 
@@ -39,8 +44,14 @@ class _NewsScreenState extends ConsumerState<NewsScreen> {
     }
   }
 
+  void _onSearchChanged(String query) {
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    _debounce = Timer(const Duration(milliseconds: 500), () {
+      ref.read(newsSearchQueryProvider.notifier).state = query.trim();
+    });
+  }
+
   Future<void> _onRefresh() async {
-    // Invalidate the provider to force a complete reload
     ref.invalidate(newsListProvider);
   }
 
@@ -48,6 +59,7 @@ class _NewsScreenState extends ConsumerState<NewsScreen> {
   Widget build(BuildContext context) {
     final newsState = ref.watch(newsListProvider);
     final currentUserId = ref.watch(currentUserIdProvider);
+    final theme = Theme.of(context);
 
     return Scaffold(
       appBar: AppBar(
@@ -56,6 +68,24 @@ class _NewsScreenState extends ConsumerState<NewsScreen> {
       ),
       body: Column(
         children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            child: TextField(
+              controller: _searchController,
+              onChanged: _onSearchChanged,
+              decoration: InputDecoration(
+                hintText: 'Пошук новин...',
+                prefixIcon: const Icon(Icons.search),
+                filled: true,
+                fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.symmetric(vertical: 0),
+              ),
+            ),
+          ),
           _buildCategoryFilter(),
           Expanded(
             child: newsState.when(

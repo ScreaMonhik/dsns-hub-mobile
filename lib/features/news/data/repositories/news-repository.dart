@@ -19,6 +19,7 @@ class NewsRepository {
     String? categoryId,
     String? status,
     String? departmentId,
+    String? search,
   }) async {
     final response = await _dio.get('/news', queryParameters: {
       'page': page,
@@ -26,6 +27,7 @@ class NewsRepository {
       if (categoryId != null) 'categoryId': categoryId,
       if (status != null) 'status': status,
       if (departmentId != null) 'departmentId': departmentId,
+      if (search != null && search.isNotEmpty) 'search': search,
     });
 
     return NewsPaginatedResponse.fromJson(response.data);

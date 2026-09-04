@@ -19,6 +19,9 @@ final Provider<Future<List<NewsCategory>>> newsCategoriesProvider = Provider((re
 // Провайдер для збереження обраної категорії (null = Усі новини)
 final StateProvider<String?> selectedCategoryProvider = StateProvider<String?>((ref) => null);
 
+// Провайдер для збереження пошукового запиту
+final StateProvider<String?> newsSearchQueryProvider = StateProvider<String?>((ref) => null);
+
 // AsyncNotifier для списку новин з підтримкою пагінації та фільтрації
 class NewsListNotifier extends AsyncNotifier<List<NewsArticle>> {
   int _currentPage = 1;
@@ -35,15 +38,17 @@ class NewsListNotifier extends AsyncNotifier<List<NewsArticle>> {
 
     _currentPage = 1;
     final categoryId = ref.watch(selectedCategoryProvider);
-    return _fetchPage(1, categoryId: categoryId);
+    final searchQuery = ref.watch(newsSearchQueryProvider);
+    return _fetchPage(1, categoryId: categoryId, search: searchQuery);
   }
 
-  Future<List<NewsArticle>> _fetchPage(int page, {String? categoryId}) async {
+  Future<List<NewsArticle>> _fetchPage(int page, {String? categoryId, String? search}) async {
     final repository = ref.read(newsRepositoryProvider);
     final response = await repository.getNews(
       page: page, 
       limit: 10,
       categoryId: categoryId,
+      search: search,
     );
     
     if (response.meta != null) {
@@ -61,9 +66,10 @@ class NewsListNotifier extends AsyncNotifier<List<NewsArticle>> {
     _isFetching = true;
     _currentPage++;
     final categoryId = ref.read(selectedCategoryProvider);
+    final searchQuery = ref.read(newsSearchQueryProvider);
     
     try {
-      final newArticles = await _fetchPage(_currentPage, categoryId: categoryId);
+      final newArticles = await _fetchPage(_currentPage, categoryId: categoryId, search: searchQuery);
       final currentArticles = state.value ?? [];
       
       state = AsyncValue.data([...currentArticles, ...newArticles]);
