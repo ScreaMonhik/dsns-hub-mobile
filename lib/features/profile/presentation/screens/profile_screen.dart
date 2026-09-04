@@ -7,6 +7,7 @@ import '../../../../core/presentation/widgets/auth_network_image.dart';
 import '../../../../core/theme/theme_provider.dart';
 import '../../../../core/presentation/utils/app_snackbar.dart';
 import '../../../../core/providers/app_info_provider.dart';
+import '../../../../core/providers/cache_provider.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -160,6 +161,41 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                     ),
                   ),
+                ),
+                const SizedBox(height: 16),
+                Consumer(
+                  builder: (context, ref, child) {
+                    final cacheState = ref.watch(cacheProvider);
+                    return SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: cacheState.isLoading
+                            ? null
+                            : () async {
+                                await ref.read(cacheProvider.notifier).clearCache();
+                                if (context.mounted) {
+                                  AppSnackBar.showSuccess(context, 'Кеш тимчасових файлів очищено');
+                                }
+                              },
+                        icon: cacheState.isLoading
+                            ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                            : Icon(Icons.delete_sweep_outlined, color: theme.colorScheme.onSurfaceVariant),
+                        label: Text(
+                          cacheState.when(
+                            data: (size) => 'Очистити кеш ($size)',
+                            loading: () => 'Обчислення...',
+                            error: (_, __) => 'Помилка кешу',
+                          ),
+                          style: TextStyle(color: theme.colorScheme.onSurfaceVariant, fontWeight: FontWeight.bold),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          side: BorderSide(color: theme.colorScheme.outline),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        ),
+                      ),
+                    );
+                  },
                 ),
                 const SizedBox(height: 16),
                 SizedBox(
