@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/project_providers.dart';
@@ -53,6 +54,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
   }
 
   void _handleVote(BuildContext context, String projectId, String type) async {
+    HapticFeedback.lightImpact();
     try {
       await ref.read(projectInteractionProvider).vote(projectId, type);
     } catch (e) {

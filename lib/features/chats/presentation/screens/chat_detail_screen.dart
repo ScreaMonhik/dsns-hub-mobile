@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -43,6 +44,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
     
+    HapticFeedback.mediumImpact();
     ref.read(chatMessagesProvider(widget.groupId).notifier).sendMessage(text);
     _controller.clear();
   }

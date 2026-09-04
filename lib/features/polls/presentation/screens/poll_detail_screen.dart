@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../providers/poll_provider.dart';
@@ -34,6 +35,7 @@ class _PollDetailScreenState extends ConsumerState<PollDetailScreen> {
       return;
     }
     
+    HapticFeedback.mediumImpact();
     setState(() => _isSubmitting = true);
     try {
       await ref.read(pollsProvider.notifier).vote(poll.id, _pendingOptionId!);

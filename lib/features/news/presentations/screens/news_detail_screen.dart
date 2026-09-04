@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../providers/news_providers.dart';
@@ -40,6 +41,7 @@ class _NewsDetailScreenState extends ConsumerState<NewsDetailScreen> {
     final text = _commentController.text.trim();
     if (text.isEmpty) return;
 
+    HapticFeedback.mediumImpact();
     setState(() => _isSubmitting = true);
     try {
       await ref.read(newsInteractionProvider).addComment(widget.newsId, text);
@@ -178,6 +180,7 @@ class _NewsDetailScreenState extends ConsumerState<NewsDetailScreen> {
                             isActive: article.currentUserVote == 'UPVOTE',
                             activeColor: Colors.green.shade600,
                             onTap: () async {
+                              HapticFeedback.lightImpact();
                               try {
                                 await ref.read(newsInteractionProvider).vote(article.id, 'UPVOTE');
                               } catch (e) {
@@ -196,6 +199,7 @@ class _NewsDetailScreenState extends ConsumerState<NewsDetailScreen> {
                             isActive: article.currentUserVote == 'DOWNVOTE',
                             activeColor: Colors.red.shade600,
                             onTap: () async {
+                              HapticFeedback.lightImpact();
                               try {
                                 await ref.read(newsInteractionProvider).vote(article.id, 'DOWNVOTE');
                               } catch (e) {

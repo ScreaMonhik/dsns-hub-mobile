@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../data/models/news_models.dart';
@@ -112,6 +113,7 @@ class _NewsScreenState extends ConsumerState<NewsScreen> {
                         currentUserId: currentUserId,
                         onTap: () => context.push('/news/${article.id}'),
                         onLike: () async {
+                          HapticFeedback.lightImpact();
                           try {
                             await ref.read(newsInteractionProvider).vote(article.id, 'UPVOTE');
                           } catch (e) {
@@ -121,6 +123,7 @@ class _NewsScreenState extends ConsumerState<NewsScreen> {
                           }
                         },
                         onDislike: () async {
+                          HapticFeedback.lightImpact();
                           try {
                             await ref.read(newsInteractionProvider).vote(article.id, 'DOWNVOTE');
                           } catch (e) {
@@ -176,6 +179,7 @@ class _NewsScreenState extends ConsumerState<NewsScreen> {
                   isSelected: selectedCategoryId == null,
                   onSelected: () {
                     if (selectedCategoryId != null) {
+                      HapticFeedback.lightImpact();
                       ref.read(selectedCategoryProvider.notifier).state = null;
                     }
                   },
@@ -187,6 +191,7 @@ class _NewsScreenState extends ConsumerState<NewsScreen> {
                     isSelected: isSelected,
                     onSelected: () {
                       if (!isSelected) {
+                        HapticFeedback.lightImpact();
                         ref.read(selectedCategoryProvider.notifier).state = category.id;
                       }
                     },

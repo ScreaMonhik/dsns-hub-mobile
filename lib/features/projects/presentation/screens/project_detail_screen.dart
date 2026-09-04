@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -28,6 +29,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
     final text = _commentController.text.trim();
     if (text.isEmpty) return;
 
+    HapticFeedback.mediumImpact();
     setState(() => _isSubmitting = true);
     try {
       await ref.read(projectInteractionProvider).addComment(widget.projectId, text);
@@ -43,6 +45,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
   }
 
   void _handleVote(String type) async {
+    HapticFeedback.lightImpact();
     try {
       await ref.read(projectInteractionProvider).vote(widget.projectId, type);
     } catch (e) {
