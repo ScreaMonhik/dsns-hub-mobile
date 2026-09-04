@@ -1,0 +1,45 @@
+# ==========================================
+# Flutter & Dart Build / Cache
+# ==========================================
+.dart_tool/
+build/
+.fvm/
+coverage/
+.packages
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# ==========================================
+# Generated Files (build_runner / freezed / json_serializable / router)
+# ==========================================
+*.g.dart
+*.freezed.dart
+*.config.dart
+*.gr.dart
+
+# ==========================================
+# Lock Files & Metadata
+# ==========================================
+pubspec.lock
+ios/Podfile.lock
+
+# ==========================================
+# Native Platform Code (Залиште комет, якщо задача стосується iOS/Android)
+# ==========================================
+android/
+ios/
+web/
+windows/
+macOS/
+linux/
+
+# ==========================================
+# IDEs & System Files
+# ==========================================
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+.DS_Store
+Thumbs.db

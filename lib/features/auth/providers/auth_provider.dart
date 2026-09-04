@@ -77,4 +77,27 @@ class AuthNotifier extends StateNotifier<AsyncValue<bool>> {
     _ref.read(currentTokenProvider.notifier).state = null;
     state = const AsyncValue.data(false);
   }
+
+  Future<void> register({
+    required String email,
+    required String password,
+    required String firstName,
+    required String lastName,
+    String? departmentId,
+  }) async {
+    state = const AsyncValue.loading();
+    try {
+      await _repository.register(
+        email: email,
+        password: password,
+        firstName: firstName,
+        lastName: lastName,
+        departmentId: departmentId,
+      );
+      state = const AsyncValue.data(false);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      rethrow;
+    }
+  }
 }

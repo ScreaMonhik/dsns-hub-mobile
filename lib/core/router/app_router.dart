@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../features/auth/providers/auth_provider.dart'; 
 import '../../features/home/presentation/home_shell_screen.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
+import '../../features/auth/presentation/screens/register_screen.dart';
 import '../../features/polls/presentation/screens/polls_screen.dart';
 import '../../features/polls/presentation/screens/poll_detail_screen.dart';
 import '../../features/news/presentations/screens/news_screen.dart';
@@ -38,17 +39,17 @@ final routerProvider = Provider<GoRouter>((ref) {
     refreshListenable: authStateNotifier,
     redirect: (context, state) {
       final authState = authStateNotifier.value;
-      final isLoggingIn = state.matchedLocation == '/login';
+      final isAuthRoute = state.matchedLocation == '/login' || state.matchedLocation == '/register';
       
       // Блокуємо доступ до системи, поки йде перевірка токена (фікс Race Condition)
       if (authState.isLoading) {
-        return isLoggingIn ? null : '/login';
+        return isAuthRoute ? null : '/login';
       }
 
       final isAuthenticated = authState.valueOrNull ?? false;
 
-      if (!isAuthenticated && !isLoggingIn) return '/login';
-      if (isAuthenticated && isLoggingIn) return '/news';
+      if (!isAuthenticated && !isAuthRoute) return '/login';
+      if (isAuthenticated && isAuthRoute) return '/news';
       
       return null;
     },
@@ -56,6 +57,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/login',
         builder: (context, state) => const LoginScreen(),
+      ),
+      GoRoute(
+        path: '/register',
+        builder: (context, state) => const RegisterScreen(),
       ),
       GoRoute(
         path: '/profile',
