@@ -6,6 +6,7 @@ import '../../../auth/providers/auth_provider.dart';
 import '../../../../core/presentation/widgets/auth_network_image.dart';
 import '../../../../core/theme/theme_provider.dart';
 import '../../../../core/presentation/utils/app_snackbar.dart';
+import '../../../../core/providers/app_info_provider.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -174,6 +175,30 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ),
                   ),
                 ),
+                const SizedBox(height: 48),
+                ref.watch(appInfoProvider).when(
+                  data: (info) => Column(
+                    children: [
+                      Text(
+                        'DSNS Hub v${info.version} (Build ${info.buildNumber})',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Environment: Production',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                        ),
+                      ),
+                    ],
+                  ),
+                  loading: () => const SizedBox.shrink(),
+                  error: (_, __) => const SizedBox.shrink(),
+                ),
+                const SizedBox(height: 24),
               ],
             ),
           );
