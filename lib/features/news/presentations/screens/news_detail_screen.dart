@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:share_plus/share_plus.dart';
 import '../providers/news_providers.dart';
 import '../widgets/tiptap_renderer.dart';
 import '../../data/models/news_models.dart';
@@ -79,6 +80,16 @@ class _NewsDetailScreenState extends ConsumerState<NewsDetailScreen> {
       backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
         title: const Text('Новина'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.share_outlined),
+            onPressed: () {
+              // Using custom scheme for now. Can be switched to https:// later.
+              final link = 'dsns://hub.dsns.gov.ua/news/${widget.newsId}';
+              Share.share(link, subject: 'Переглянути новину в DSNS Hub');
+            },
+          ),
+        ],
       ),
       body: newsState.when(
         data: (article) {

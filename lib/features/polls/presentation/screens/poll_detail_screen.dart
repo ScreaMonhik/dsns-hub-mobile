@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:share_plus/share_plus.dart';
 import '../providers/poll_provider.dart';
 import '../../data/models/poll_model.dart';
 
@@ -81,6 +82,15 @@ class _PollDetailScreenState extends ConsumerState<PollDetailScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Голосування', style: TextStyle(fontWeight: FontWeight.bold)),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.share_outlined),
+            onPressed: () {
+              final link = 'dsns://hub.dsns.gov.ua/polls/${widget.pollId}';
+              Share.share(link, subject: 'Переглянути опитування в DSNS Hub');
+            },
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 24.0),
