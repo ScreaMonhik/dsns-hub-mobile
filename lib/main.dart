@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/theme_provider.dart';
+import 'core/presentation/widgets/offline_banner.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -87,6 +88,17 @@ class DsnsHubApp extends ConsumerWidget {
       ),
       routerConfig: router,
       debugShowCheckedModeBanner: false,
+      builder: (context, child) {
+        return Directionality(
+          textDirection: TextDirection.ltr,
+          child: Column(
+            children: [
+              const GlobalOfflineBanner(),
+              Expanded(child: child ?? const SizedBox.shrink()),
+            ],
+          ),
+        );
+      },
     );
   }
 }

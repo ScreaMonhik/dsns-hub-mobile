@@ -6,6 +6,7 @@ import 'package:dsns_hub/core/presentation/widgets/filter_choice_chip.dart';
 import '../providers/poll_provider.dart';
 import '../../data/models/poll_model.dart';
 import '../../../profile/presentation/widgets/user_profile_button.dart';
+import '../../../../core/presentation/widgets/shimmer_loading_list.dart';
 
 class PollsScreen extends ConsumerStatefulWidget {
   const PollsScreen({super.key});
@@ -112,7 +113,7 @@ class _PollsScreenState extends ConsumerState<PollsScreen> {
                   ),
                 );
               },
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const ShimmerLoadingList(),
               error: (error, _) => Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,

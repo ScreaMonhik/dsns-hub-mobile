@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../providers/project_providers.dart';
 import '../widgets/project_card.dart';
 import '../../../profile/presentation/widgets/user_profile_button.dart';
+import '../../../../core/presentation/widgets/shimmer_loading_list.dart';
 
 class ProjectsScreen extends ConsumerStatefulWidget {
   const ProjectsScreen({super.key});
@@ -131,7 +132,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                   ),
                 );
               },
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const ShimmerLoadingList(),
               error: (err, _) => Center(child: Text('Помилка: $err')),
             ),
           ),

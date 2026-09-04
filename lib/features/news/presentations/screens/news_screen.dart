@@ -7,6 +7,7 @@ import '../providers/news_providers.dart';
 import '../widgets/news_card.dart';
 import '../../../profile/presentation/widgets/user_profile_button.dart';
 import '../../../auth/providers/auth_provider.dart';
+import '../../../../core/presentation/widgets/shimmer_loading_list.dart';
 
 class NewsScreen extends ConsumerStatefulWidget {
   const NewsScreen({super.key});
@@ -106,7 +107,7 @@ class _NewsScreenState extends ConsumerState<NewsScreen> {
                   ),
                 );
               },
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const ShimmerLoadingList(),
               error: (error, stack) => _buildErrorState(error.toString()),
             ),
           ),

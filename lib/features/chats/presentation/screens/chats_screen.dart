@@ -6,6 +6,7 @@ import '../providers/chat_providers.dart';
 import '../../../../core/presentation/widgets/auth_network_image.dart';
 import '../../../profile/presentation/widgets/user_profile_button.dart';
 import '../../../auth/providers/auth_provider.dart';
+import '../../../../core/presentation/widgets/shimmer_loading_list.dart';
 
 class ChatsScreen extends ConsumerWidget {
   const ChatsScreen({super.key});
@@ -136,7 +137,7 @@ class ChatsScreen extends ConsumerWidget {
             ),
           );
         },
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const ShimmerLoadingList(itemCount: 8),
         error: (err, _) => Center(child: Text('Помилка: $err')),
       ),
     );

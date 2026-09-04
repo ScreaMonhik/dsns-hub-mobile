@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../providers/document_providers.dart';
 import '../widgets/document_card.dart';
 import '../../../profile/presentation/widgets/user_profile_button.dart';
+import '../../../../core/presentation/widgets/shimmer_loading_list.dart';
 
 class DocumentsScreen extends ConsumerStatefulWidget {
   const DocumentsScreen({super.key});
@@ -127,7 +128,7 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
                   ),
                 );
               },
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const ShimmerLoadingList(),
               error: (err, _) => Center(
                 child: Padding(
                   padding: const EdgeInsets.all(24.0),
