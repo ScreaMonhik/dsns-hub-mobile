@@ -19,11 +19,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _lastNameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
   
   DepartmentPublic? _selectedRegion;
   DepartmentPublic? _selectedDepartment;
   
   bool _isPasswordVisible = false;
+  bool _isConfirmPasswordVisible = false;
 
   @override
   void dispose() {
@@ -31,17 +33,24 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     _lastNameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
   bool _validateInput() {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
+    final confirmPassword = _confirmPasswordController.text.trim();
     final firstName = _firstNameController.text.trim();
     final lastName = _lastNameController.text.trim();
 
-    if (firstName.isEmpty || lastName.isEmpty || email.isEmpty || password.isEmpty) {
+    if (firstName.isEmpty || lastName.isEmpty || email.isEmpty || password.isEmpty || confirmPassword.isEmpty) {
       _showError('Усі текстові поля є обов\'язковими');
+      return false;
+    }
+
+    if (password != confirmPassword) {
+      _showError('Паролі не співпадають');
       return false;
     }
 
@@ -218,13 +227,14 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   Widget build(BuildContext context) {
     final isLoading = ref.watch(authStateProvider).isLoading;
 
+    final theme = Theme.of(context);
+    
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surfaceVariant,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Theme.of(context).colorScheme.onSurface),
+          icon: Icon(Icons.arrow_back, color: theme.colorScheme.onSurface),
           onPressed: () => context.pop(),
         ),
       ),
@@ -236,11 +246,15 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               constraints: const BoxConstraints(maxWidth: 420),
               padding: const EdgeInsets.all(32.0),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface,
+                color: theme.colorScheme.surfaceContainer,
                 borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: theme.colorScheme.outlineVariant,
+                  width: 0.5,
+                ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
+                    color: Colors.black.withValues(alpha: 0.1),
                     blurRadius: 24,
                     offset: const Offset(0, 8),
                   ),
@@ -267,8 +281,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     decoration: InputDecoration(
                       labelText: 'Ім\'я',
                       prefixIcon: const Icon(Icons.person_outline),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
                       filled: true,
+                      fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -280,8 +295,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     decoration: InputDecoration(
                       labelText: 'Прізвище',
                       prefixIcon: const Icon(Icons.person_outline),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
                       filled: true,
+                      fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -294,8 +310,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       labelText: 'Email',
                       hintText: 'user@dsns.gov.ua',
                       prefixIcon: const Icon(Icons.email_outlined),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
                       filled: true,
+                      fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -303,8 +320,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     controller: _passwordController,
                     enabled: !isLoading,
                     obscureText: !_isPasswordVisible,
-                    textInputAction: TextInputAction.done,
-                    onSubmitted: (_) => _submit(),
+                    textInputAction: TextInputAction.next,
                     decoration: InputDecoration(
                       labelText: 'Пароль',
                       prefixIcon: const Icon(Icons.lock_outline),
@@ -312,8 +328,28 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                         icon: Icon(_isPasswordVisible ? Icons.visibility_off_outlined : Icons.visibility_outlined),
                         onPressed: () => setState(() => _isPasswordVisible = !_isPasswordVisible),
                       ),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
                       filled: true,
+                      fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: _confirmPasswordController,
+                    enabled: !isLoading,
+                    obscureText: !_isConfirmPasswordVisible,
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: (_) => _submit(),
+                    decoration: InputDecoration(
+                      labelText: 'Підтвердження паролю',
+                      prefixIcon: const Icon(Icons.lock_reset_outlined),
+                      suffixIcon: IconButton(
+                        icon: Icon(_isConfirmPasswordVisible ? Icons.visibility_off_outlined : Icons.visibility_outlined),
+                        onPressed: () => setState(() => _isConfirmPasswordVisible = !_isConfirmPasswordVisible),
+                      ),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                      filled: true,
+                      fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -323,12 +359,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     controller: TextEditingController(text: _selectedRegion?.name ?? ''),
                     onTap: _showRegionPicker,
                     decoration: InputDecoration(
-                      labelText: 'Область *',
+                      labelText: 'Область',
                       hintText: ref.watch(regionsProvider).isLoading ? 'Завантаження...' : 'Натисніть щоб обрати',
                       prefixIcon: const Icon(Icons.map_outlined),
                       suffixIcon: const Icon(Icons.arrow_drop_down_circle_outlined),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
                       filled: true,
+                      fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
                     ),
                   ),
                   if (_selectedRegion?.name != 'Апарат ДСНС') ...[
@@ -339,12 +376,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       controller: TextEditingController(text: _selectedDepartment?.name ?? ''),
                       onTap: _showDepartmentPicker,
                       decoration: InputDecoration(
-                        labelText: 'Підрозділ *',
+                        labelText: 'Підрозділ',
                         hintText: _selectedRegion == null ? 'Спочатку оберіть область' : 'Натисніть для пошуку...',
                         prefixIcon: const Icon(Icons.business_outlined),
                         suffixIcon: const Icon(Icons.search),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
                         filled: true,
+                        fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
                       ),
                     ),
                   ],
@@ -358,7 +396,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       ),
                       child: isLoading
                           ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(strokeWidth: 2.5))
-                          : const Text('ЗАРЕЄСТРУВАТИСЯ', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+                          : const Text('Зареєструватися', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
                     ),
                   ),
                 ],

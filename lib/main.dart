@@ -106,46 +106,37 @@ class _DsnsHubAppState extends ConsumerState<DsnsHubApp> {
       ),
       darkTheme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF3B82F6), // Сучасний синій акцент
+          seedColor: const Color(0xFF3B82F6),
           brightness: Brightness.dark,
-          surface: Colors.black, // Абсолютно чорний фон (OLED-friendly)
-          surfaceContainer: const Color(0xFF1C1C1E), // Класичний iOS-графіт для карток
-          surfaceContainerHighest: const Color(0xFF2C2C2E), // Елементи взаємодії
-          outlineVariant: const Color(0xFF38383A), // Витончені бордери карток
-          onSurface: Colors.white,
-          onSurfaceVariant: const Color(0xFF8E8E93), // М'який сірий для другорядного тексту
+          surface: const Color(0xFF121212),
+          surfaceContainer: const Color(0xFF1E1E1E),
+          surfaceContainerHighest: const Color(0xFF2C2C2C),
+          outlineVariant: const Color(0xFF333333),
+          onSurface: const Color(0xFFF8FAFC),
+          onSurfaceVariant: const Color(0xFFA1A1AA),
+          primaryContainer: const Color(0xFF1D4ED8).withValues(alpha: 0.3),
+          onPrimaryContainer: const Color(0xFFDBEAFE),
+          errorContainer: const Color(0xFF7F1D1D).withValues(alpha: 0.4),
+          onErrorContainer: const Color(0xFFFCA5A5),
         ),
         useMaterial3: true,
-        scaffoldBackgroundColor: Colors.black,
+        scaffoldBackgroundColor: const Color(0xFF121212),
         appBarTheme: const AppBarTheme(
-          centerTitle: false, // Вирівнювання по лівому краю
+          centerTitle: false,
           elevation: 0,
           scrolledUnderElevation: 0,
-          backgroundColor: Colors.black,
+          backgroundColor: Color(0xFF121212),
           surfaceTintColor: Colors.transparent,
           titleTextStyle: TextStyle(
             fontSize: 28,
             fontWeight: FontWeight.w800,
             letterSpacing: -1.0,
-            color: Colors.white,
+            color: Color(0xFFF8FAFC),
           ),
         ),
-        navigationBarTheme: NavigationBarThemeData(
-          backgroundColor: const Color(0xFF0A0A0A), // Трохи світліший за фон екрану
-          indicatorColor: const Color(0xFF3B82F6).withValues(alpha: 0.15), // Напівпрозорий індикатор замість суцільної пілюлі
-          surfaceTintColor: Colors.transparent,
-          labelTextStyle: WidgetStateProperty.resolveWith((states) {
-            if (states.contains(WidgetState.selected)) {
-              return const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF3B82F6));
-            }
-            return const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Color(0xFF8E8E93));
-          }),
-          iconTheme: WidgetStateProperty.resolveWith((states) {
-            if (states.contains(WidgetState.selected)) {
-              return const IconThemeData(color: Color(0xFF3B82F6), size: 26);
-            }
-            return const IconThemeData(color: Color(0xFF8E8E93), size: 26);
-          }),
+        dividerTheme: const DividerThemeData(
+          color: Color(0xFF333333),
+          thickness: 1,
         ),
       ),
       routerConfig: router,

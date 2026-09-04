@@ -19,12 +19,12 @@ class HomeShellScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final theme = Theme.of(context);
 
     Widget buildNavItem(int index, IconData icon, IconData activeIcon, String label) {
       final isActive = navigationShell.currentIndex == index;
-      final activeColor = isDark ? Colors.white : Colors.black87;
-      final inactiveColor = isDark ? Colors.white.withValues(alpha: 0.4) : Colors.black.withValues(alpha: 0.4);
+      final activeColor = isActive ? theme.colorScheme.primary : theme.colorScheme.onSurface;
+      final inactiveColor = theme.colorScheme.onSurfaceVariant;
 
       return GestureDetector(
         onTap: () => _goBranch(index),
@@ -38,7 +38,7 @@ class HomeShellScreen extends StatelessWidget {
           ),
           decoration: BoxDecoration(
             color: isActive 
-                ? (isDark ? Colors.white.withValues(alpha: 0.15) : Colors.black.withValues(alpha: 0.08)) 
+                ? theme.colorScheme.primary.withValues(alpha: 0.15)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(24),
           ),
@@ -62,7 +62,7 @@ class HomeShellScreen extends StatelessWidget {
                       label,
                       style: TextStyle(
                         color: activeColor,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700,
                         fontSize: 14,
                       ),
                       maxLines: 1,
@@ -95,14 +95,10 @@ class HomeShellScreen extends StatelessWidget {
                 height: 64,
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 decoration: BoxDecoration(
-                  color: isDark
-                      ? const Color(0xFF1E1E1E).withValues(alpha: 0.65)
-                      : Colors.white.withValues(alpha: 0.75),
+                  color: theme.colorScheme.surfaceContainer.withValues(alpha: 0.8),
                   borderRadius: BorderRadius.circular(32),
                   border: Border.all(
-                    color: isDark
-                        ? Colors.white.withValues(alpha: 0.15)
-                        : Colors.black.withValues(alpha: 0.1),
+                    color: theme.colorScheme.outlineVariant,
                     width: 0.5,
                   ),
                 ),

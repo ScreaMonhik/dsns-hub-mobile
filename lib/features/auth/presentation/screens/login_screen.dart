@@ -105,8 +105,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       }
     });
 
+    final theme = Theme.of(context);
+    
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surfaceVariant,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -115,11 +116,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               constraints: const BoxConstraints(maxWidth: 420),
               padding: const EdgeInsets.all(32.0),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface,
+                color: theme.colorScheme.surfaceContainer,
                 borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: theme.colorScheme.outlineVariant,
+                  width: 0.5,
+                ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
+                    color: Colors.black.withValues(alpha: 0.1),
                     blurRadius: 24,
                     offset: const Offset(0, 8),
                   ),
@@ -163,9 +168,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       prefixIcon: const Icon(Icons.email_outlined),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide.none,
                       ),
                       filled: true,
-                      fillColor: Theme.of(context).colorScheme.surface,
+                      fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
                     ),
                   ),
                   const SizedBox(height: 20),
@@ -176,7 +182,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     textInputAction: TextInputAction.done,
                     onSubmitted: (_) => _submit(),
                     decoration: InputDecoration(
-                      labelText: 'Password',
+                      labelText: 'Пароль',
                       prefixIcon: const Icon(Icons.lock_outline),
                       suffixIcon: IconButton(
                         icon: Icon(
@@ -192,9 +198,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide.none,
                       ),
                       filled: true,
-                      fillColor: Theme.of(context).colorScheme.surface,
+                      fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
                     ),
                   ),
                   const SizedBox(height: 32),
@@ -213,7 +220,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             child: isLoading
                                 ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(strokeWidth: 2.5))
                                 : const Text(
-                                    'LOGIN',
+                                    'Увійти',
                                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.5),
                                   ),
                           ),
