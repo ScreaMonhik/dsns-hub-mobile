@@ -57,6 +57,17 @@ class AuthRepository {
     }
   }
 
+  Future<void> updateFcmToken(String fcmToken) async {
+    try {
+      await _dio.patch(
+        '/auth/session/fcm-token',
+        data: {'fcmToken': fcmToken},
+      );
+    } catch (_) {
+      // Ігноруємо помилку, щоб не блокувати UI, якщо токен не оновився
+    }
+  }
+
   Future<void> register({
     required String email,
     required String password,

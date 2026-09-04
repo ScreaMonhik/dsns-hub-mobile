@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../../core/storage/secure_storage_provider.dart';
+import '../../../core/services/notification_service.dart';
 import '../data/repositories/auth_repository.dart';
 
 final currentTokenProvider = StateProvider<String?>((ref) => null);
@@ -40,11 +42,37 @@ class AuthNotifier extends StateNotifier<AsyncValue<bool>> {
     _checkToken();
   }
 
+  StreamSubscription<String>? _fcmTokenSub;
+
+  @override
+  void dispose() {
+    _fcmTokenSub?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _syncFcmToken() async {
+    try {
+      final notificationService = _ref.read(notificationServiceProvider);
+      await notificationService.requestPermission();
+      
+      final token = await notificationService.getToken();
+      if (token != null) {
+        await _repository.updateFcmToken(token);
+      }
+
+      _fcmTokenSub?.cancel();
+      _fcmTokenSub = notificationService.onTokenRefresh.listen((newToken) {
+        _repository.updateFcmToken(newToken);
+      });
+    } catch (_) {}
+  }
+
   Future<void> _checkToken() async {
     final token = await _storage.read(key: 'jwt_token');
     if (token != null && token.isNotEmpty) {
       _ref.read(currentTokenProvider.notifier).state = token;
       state = const AsyncValue.data(true);
+      _syncFcmToken();
     } else {
       state = const AsyncValue.data(false);
     }
@@ -63,6 +91,7 @@ class AuthNotifier extends StateNotifier<AsyncValue<bool>> {
 
       _ref.read(currentTokenProvider.notifier).state = tokens['accessToken'];
       state = const AsyncValue.data(true);
+      _syncFcmToken();
     } catch (e, st) {
       state = AsyncValue.error(e, st);
     }

@@ -3,6 +3,8 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart' hide TextDirection;
+import 'package:firebase_core/firebase_core.dart';
+import 'core/services/notification_service.dart';
 import 'core/router/app_router.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'core/theme/theme_provider.dart';
@@ -18,6 +20,8 @@ import 'core/presentation/widgets/app_lock_overlay.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  await Firebase.initializeApp();
   
   // Initialize Ukrainian locale data for DateFormat
   await initializeDateFormatting('uk', null);
@@ -39,6 +43,8 @@ class _DsnsHubAppState extends ConsumerState<DsnsHubApp> {
   @override
   void initState() {
     super.initState();
+    ref.read(notificationServiceProvider).initialize();
+    
     _lifecycleListener = AppLifecycleListener(
       onPause: () => ref.read(appLockProvider.notifier).onPaused(),
       onResume: () => ref.read(appLockProvider.notifier).onResumed(),
