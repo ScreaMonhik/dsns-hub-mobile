@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/auth_provider.dart';
+import '../../../../core/presentation/utils/app_snackbar.dart';
+import '../../../../core/storage/secure_storage_provider.dart';
+import '../../../../core/security/biometric_service.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -12,8 +15,44 @@ class LoginScreen extends ConsumerStatefulWidget {
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _emailController = TextEditingController(text: 'admin@dsns.gov.ua');
-  final _passwordController = TextEditingController(text: 'SuperSecretPassword123');
+  final _passwordController = TextEditingController(text: '123456');
   bool _isPasswordVisible = false;
+  bool _hasBiometricsSaved = false;
+  IconData _biometricIcon = Icons.fingerprint;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkSavedBiometrics();
+  }
+
+  Future<void> _checkSavedBiometrics() async {
+    final storage = ref.read(secureStorageProvider);
+    final savedEmail = await storage.read(key: 'biometric_email');
+    final icon = await BiometricService.getBiometricIcon();
+    
+    if (savedEmail != null && mounted) {
+      setState(() {
+        _hasBiometricsSaved = true;
+        _emailController.text = savedEmail;
+        _passwordController.text = '';
+        _biometricIcon = icon;
+      });
+    }
+  }
+
+  Future<void> _loginWithBiometrics() async {
+    final success = await BiometricService.authenticate();
+    if (success && mounted) {
+      final storage = ref.read(secureStorageProvider);
+      final email = await storage.read(key: 'biometric_email');
+      final password = await storage.read(key: 'biometric_password');
+      if (email != null && password != null) {
+        FocusScope.of(context).unfocus();
+        ref.read(authStateProvider.notifier).login(email, password);
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -159,32 +198,43 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                   ),
                   const SizedBox(height: 32),
-                  SizedBox(
-                    height: 56,
-                    child: FilledButton(
-                      onPressed: isLoading ? null : _submit,
-                      style: FilledButton.styleFrom(
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
-                      child: isLoading
-                          ? const SizedBox(
-                              height: 24,
-                              width: 24,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2.5,
-                              ),
-                            )
-                          : const Text(
-                              'LOGIN',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 1.5,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: SizedBox(
+                          height: 56,
+                          child: FilledButton(
+                            onPressed: isLoading ? null : _submit,
+                            style: FilledButton.styleFrom(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
                               ),
                             ),
-                    ),
+                            child: isLoading
+                                ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(strokeWidth: 2.5))
+                                : const Text(
+                                    'LOGIN',
+                                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.5),
+                                  ),
+                          ),
+                        ),
+                      ),
+                      if (_hasBiometricsSaved) ...[
+                        const SizedBox(width: 16),
+                        SizedBox(
+                          height: 56,
+                          width: 56,
+                          child: FilledButton.tonal(
+                            onPressed: isLoading ? null : _loginWithBiometrics,
+                            style: FilledButton.styleFrom(
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                              padding: EdgeInsets.zero,
+                            ),
+                            child: Icon(_biometricIcon, size: 32),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                   const SizedBox(height: 16),
                   TextButton(
@@ -194,6 +244,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       style: TextStyle(
                         color: Theme.of(context).colorScheme.primary,
                         fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: isLoading ? null : () {
+                      AppSnackBar.showWarning(context, 'Для відновлення пароля зверніться до адміністратора');
+                    },
+                    child: Text(
+                      'Забули пароль?',
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ),

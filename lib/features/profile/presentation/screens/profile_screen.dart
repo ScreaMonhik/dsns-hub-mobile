@@ -5,6 +5,7 @@ import '../../providers/profile_provider.dart';
 import '../../../auth/providers/auth_provider.dart';
 import '../../../../core/presentation/widgets/auth_network_image.dart';
 import '../../../../core/theme/theme_provider.dart';
+import '../../../../core/presentation/utils/app_snackbar.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -145,7 +146,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     },
                   ),
                 ),
-                const SizedBox(height: 48),
+                const SizedBox(height: 32),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => _showChangePasswordSheet(context),
+                    icon: Icon(Icons.lock_reset, color: theme.colorScheme.primary),
+                    label: Text('Змінити пароль', style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.bold)),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      side: BorderSide(color: theme.colorScheme.primary),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(
@@ -197,6 +212,139 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 const SizedBox(height: 4),
                 Text(value, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showChangePasswordSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => const _ChangePasswordSheet(),
+    );
+  }
+}
+
+class _ChangePasswordSheet extends ConsumerStatefulWidget {
+  const _ChangePasswordSheet();
+
+  @override
+  ConsumerState<_ChangePasswordSheet> createState() => _ChangePasswordSheetState();
+}
+
+class _ChangePasswordSheetState extends ConsumerState<_ChangePasswordSheet> {
+  final _oldPasswordController = TextEditingController();
+  final _newPasswordController = TextEditingController();
+  bool _isSubmitting = false;
+  bool _obscureOld = true;
+  bool _obscureNew = true;
+
+  @override
+  void dispose() {
+    _oldPasswordController.dispose();
+    _newPasswordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final oldPassword = _oldPasswordController.text.trim();
+    final newPassword = _newPasswordController.text.trim();
+
+    if (oldPassword.isEmpty || newPassword.isEmpty) {
+      AppSnackBar.showError(context, 'Усі поля є обов\'язковими');
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+    FocusScope.of(context).unfocus();
+
+    try {
+      await ref.read(profileProvider.notifier).changePassword(oldPassword, newPassword);
+      if (mounted) {
+        Navigator.pop(context);
+        AppSnackBar.showSuccess(context, 'Пароль успішно змінено');
+      }
+    } catch (e) {
+      if (mounted) {
+        AppSnackBar.showError(context, e.toString().replaceAll('Exception: ', ''));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    
+    return Padding(
+      padding: EdgeInsets.fromLTRB(24, 24, 24, MediaQuery.viewInsetsOf(context).bottom + 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Зміна пароля',
+            style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 24),
+          TextField(
+            controller: _oldPasswordController,
+            enabled: !_isSubmitting,
+            obscureText: _obscureOld,
+            decoration: InputDecoration(
+              labelText: 'Поточний пароль',
+              prefixIcon: const Icon(Icons.lock_outline),
+              suffixIcon: IconButton(
+                icon: Icon(_obscureOld ? Icons.visibility_off_outlined : Icons.visibility_outlined),
+                onPressed: () => setState(() => _obscureOld = !_obscureOld),
+              ),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+              filled: true,
+            ),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _newPasswordController,
+            enabled: !_isSubmitting,
+            obscureText: _obscureNew,
+            decoration: InputDecoration(
+              labelText: 'Новий пароль',
+              prefixIcon: const Icon(Icons.lock_reset),
+              suffixIcon: IconButton(
+                icon: Icon(_obscureNew ? Icons.visibility_off_outlined : Icons.visibility_outlined),
+                onPressed: () => setState(() => _obscureNew = !_obscureNew),
+              ),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+              filled: true,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Пароль має містити щонайменше 8 символів, 1 велику та малу літеру, 1 цифру та спецсимвол.',
+            style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: 32),
+          SizedBox(
+            height: 56,
+            child: FilledButton(
+              onPressed: _isSubmitting ? null : _submit,
+              style: FilledButton.styleFrom(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              ),
+              child: _isSubmitting
+                  ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(strokeWidth: 2.5))
+                  : const Text('ЗБЕРЕГТИ ПАРОЛЬ', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             ),
           ),
         ],

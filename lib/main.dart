@@ -10,17 +10,41 @@ import 'features/documents/presentation/providers/document_providers.dart';
 import 'features/projects/presentation/providers/project_providers.dart';
 import 'features/polls/presentation/providers/poll_provider.dart';
 import 'features/chats/presentation/providers/chat_providers.dart';
+import 'core/security/app_lock_provider.dart';
+import 'core/presentation/widgets/app_lock_overlay.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(const ProviderScope(child: DsnsHubApp()));
 }
 
-class DsnsHubApp extends ConsumerWidget {
+class DsnsHubApp extends ConsumerStatefulWidget {
   const DsnsHubApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DsnsHubApp> createState() => _DsnsHubAppState();
+}
+
+class _DsnsHubAppState extends ConsumerState<DsnsHubApp> {
+  late final AppLifecycleListener _lifecycleListener;
+
+  @override
+  void initState() {
+    super.initState();
+    _lifecycleListener = AppLifecycleListener(
+      onPause: () => ref.read(appLockProvider.notifier).onPaused(),
+      onResume: () => ref.read(appLockProvider.notifier).onResumed(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _lifecycleListener.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final router = ref.watch(routerProvider);
     final themeMode = ref.watch(themeProvider);
 
@@ -112,10 +136,15 @@ class DsnsHubApp extends ConsumerWidget {
       builder: (context, child) {
         return Directionality(
           textDirection: TextDirection.ltr,
-          child: Column(
+          child: Stack(
             children: [
-              const GlobalOfflineBanner(),
-              Expanded(child: child ?? const SizedBox.shrink()),
+              Column(
+                children: [
+                  const GlobalOfflineBanner(),
+                  Expanded(child: child ?? const SizedBox.shrink()),
+                ],
+              ),
+              const AppLockOverlay(),
             ],
           ),
         );

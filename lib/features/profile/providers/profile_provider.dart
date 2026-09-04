@@ -35,4 +35,8 @@ class ProfileNotifier extends AsyncNotifier<UserProfile?> {
       rethrow;
     }
   }
+
+  Future<void> changePassword(String oldPassword, String newPassword) async {
+    await ref.read(profileRepositoryProvider).changePassword(oldPassword, newPassword);
+  }
 }

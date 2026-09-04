@@ -56,6 +56,11 @@ class AuthNotifier extends StateNotifier<AsyncValue<bool>> {
       final tokens = await _repository.login(email, password);
       await _storage.write(key: 'jwt_token', value: tokens['accessToken']);
       await _storage.write(key: 'refresh_token', value: tokens['refreshToken']);
+      
+      // Зберігаємо облікові дані для біометричного входу
+      await _storage.write(key: 'biometric_email', value: email);
+      await _storage.write(key: 'biometric_password', value: password);
+
       _ref.read(currentTokenProvider.notifier).state = tokens['accessToken'];
       state = const AsyncValue.data(true);
     } catch (e, st) {

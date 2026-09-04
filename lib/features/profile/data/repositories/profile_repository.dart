@@ -53,4 +53,27 @@ class ProfileRepository {
     
     return response.data['avatarUrl'] as String;
   }
+
+  Future<void> changePassword(String oldPassword, String newPassword) async {
+    try {
+      await _dio.patch(
+        '/users/me/password',
+        data: {
+          'oldPassword': oldPassword,
+          'newPassword': newPassword,
+        },
+      );
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 400) {
+        final data = e.response?.data;
+        final message = (data is Map && data['message'] != null)
+            ? (data['message'] is List ? data['message'].join('\n') : data['message'])
+            : 'Помилка валідації пароля';
+        throw Exception(message.toString());
+      }
+      throw Exception('Помилка з\'єднання з сервером');
+    } catch (e) {
+      throw Exception('Невідома помилка: $e');
+    }
+  }
 }
