@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-// Оновіть шлях імпорту до вашого auth_provider.dart, якщо він знаходиться в іншій папці
+import 'package:animations/animations.dart';
 import '../../features/auth/providers/auth_provider.dart'; 
 import '../../features/home/presentation/home_shell_screen.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
@@ -66,9 +66,27 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/profile',
         builder: (context, state) => const ProfileScreen(),
       ),
-      StatefulShellRoute.indexedStack(
+      StatefulShellRoute(
         builder: (context, state, navigationShell) {
           return HomeShellScreen(navigationShell: navigationShell);
+        },
+        navigatorContainerBuilder: (context, navigationShell, children) {
+          return PageTransitionSwitcher(
+            duration: const Duration(milliseconds: 350),
+            transitionBuilder: (child, animation, secondaryAnimation) {
+              return SharedAxisTransition(
+                animation: animation,
+                secondaryAnimation: secondaryAnimation,
+                transitionType: SharedAxisTransitionType.horizontal,
+                fillColor: Theme.of(context).colorScheme.surface,
+                child: child,
+              );
+            },
+            child: KeyedSubtree(
+              key: ValueKey<int>(navigationShell.currentIndex),
+              child: children[navigationShell.currentIndex],
+            ),
+          );
         },
         branches: [
           StatefulShellBranch(
@@ -79,12 +97,24 @@ final routerProvider = Provider<GoRouter>((ref) {
                 routes: [
                   GoRoute(
                     path: ':id',
-                    builder: (context, state) {
+                    pageBuilder: (context, state) {
                       final newsId = state.pathParameters['id']!;
                       final scrollToComments = state.uri.queryParameters['comments'] == 'true';
-                      return NewsDetailScreen(
-                        newsId: newsId, 
-                        scrollToComments: scrollToComments,
+                      return CustomTransitionPage(
+                        key: state.pageKey,
+                        child: NewsDetailScreen(
+                          newsId: newsId, 
+                          scrollToComments: scrollToComments,
+                        ),
+                        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                          return SharedAxisTransition(
+                            animation: animation,
+                            secondaryAnimation: secondaryAnimation,
+                            transitionType: SharedAxisTransitionType.scaled,
+                            fillColor: Theme.of(context).colorScheme.surface,
+                            child: child,
+                          );
+                        },
                       );
                     },
                   ),
@@ -100,9 +130,21 @@ final routerProvider = Provider<GoRouter>((ref) {
                 routes: [
                   GoRoute(
                     path: 'view',
-                    builder: (context, state) {
+                    pageBuilder: (context, state) {
                       final document = state.extra as DocumentModel;
-                      return DocumentPdfScreen(document: document);
+                      return CustomTransitionPage(
+                        key: state.pageKey,
+                        child: DocumentPdfScreen(document: document),
+                        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                          return SharedAxisTransition(
+                            animation: animation,
+                            secondaryAnimation: secondaryAnimation,
+                            transitionType: SharedAxisTransitionType.scaled,
+                            fillColor: Theme.of(context).colorScheme.surface,
+                            child: child,
+                          );
+                        },
+                      );
                     },
                   ),
                 ],
@@ -117,16 +159,40 @@ final routerProvider = Provider<GoRouter>((ref) {
                 routes: [
                   GoRoute(
                     path: ':id',
-                    builder: (context, state) {
+                    pageBuilder: (context, state) {
                       final projectId = state.pathParameters['id']!;
-                      return ProjectDetailScreen(projectId: projectId);
+                      return CustomTransitionPage(
+                        key: state.pageKey,
+                        child: ProjectDetailScreen(projectId: projectId),
+                        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                          return SharedAxisTransition(
+                            animation: animation,
+                            secondaryAnimation: secondaryAnimation,
+                            transitionType: SharedAxisTransitionType.scaled,
+                            fillColor: Theme.of(context).colorScheme.surface,
+                            child: child,
+                          );
+                        },
+                      );
                     },
                     routes: [
                       GoRoute(
                         path: 'pdf',
-                        builder: (context, state) {
+                        pageBuilder: (context, state) {
                           final project = state.extra as ProjectModel;
-                          return ProjectPdfScreen(project: project);
+                          return CustomTransitionPage(
+                            key: state.pageKey,
+                            child: ProjectPdfScreen(project: project),
+                            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                              return SharedAxisTransition(
+                                animation: animation,
+                                secondaryAnimation: secondaryAnimation,
+                                transitionType: SharedAxisTransitionType.scaled,
+                                fillColor: Theme.of(context).colorScheme.surface,
+                                child: child,
+                              );
+                            },
+                          );
                         },
                       ),
                     ],
@@ -143,9 +209,21 @@ final routerProvider = Provider<GoRouter>((ref) {
                 routes: [
                   GoRoute(
                     path: ':id',
-                    builder: (context, state) {
+                    pageBuilder: (context, state) {
                       final pollId = state.pathParameters['id']!;
-                      return PollDetailScreen(pollId: pollId);
+                      return CustomTransitionPage(
+                        key: state.pageKey,
+                        child: PollDetailScreen(pollId: pollId),
+                        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                          return SharedAxisTransition(
+                            animation: animation,
+                            secondaryAnimation: secondaryAnimation,
+                            transitionType: SharedAxisTransitionType.scaled,
+                            fillColor: Theme.of(context).colorScheme.surface,
+                            child: child,
+                          );
+                        },
+                      );
                     },
                   ),
                 ],
@@ -160,16 +238,40 @@ final routerProvider = Provider<GoRouter>((ref) {
                 routes: [
                   GoRoute(
                     path: ':id',
-                    builder: (context, state) {
+                    pageBuilder: (context, state) {
                       final groupId = state.pathParameters['id']!;
-                      return ChatDetailScreen(groupId: groupId);
+                      return CustomTransitionPage(
+                        key: state.pageKey,
+                        child: ChatDetailScreen(groupId: groupId),
+                        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                          return SharedAxisTransition(
+                            animation: animation,
+                            secondaryAnimation: secondaryAnimation,
+                            transitionType: SharedAxisTransitionType.scaled,
+                            fillColor: Theme.of(context).colorScheme.surface,
+                            child: child,
+                          );
+                        },
+                      );
                     },
                     routes: [
                       GoRoute(
                         path: 'info',
-                        builder: (context, state) {
+                        pageBuilder: (context, state) {
                           final groupId = state.pathParameters['id']!;
-                          return ChatInfoScreen(groupId: groupId);
+                          return CustomTransitionPage(
+                            key: state.pageKey,
+                            child: ChatInfoScreen(groupId: groupId),
+                            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                              return SharedAxisTransition(
+                                animation: animation,
+                                secondaryAnimation: secondaryAnimation,
+                                transitionType: SharedAxisTransitionType.scaled,
+                                fillColor: Theme.of(context).colorScheme.surface,
+                                child: child,
+                              );
+                            },
+                          );
                         },
                       ),
                     ],
