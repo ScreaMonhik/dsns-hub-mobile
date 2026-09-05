@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:dsns_hub/core/presentation/widgets/filter_choice_chip.dart';
 import '../providers/poll_provider.dart';
 import '../../data/models/poll_model.dart';
@@ -111,7 +112,7 @@ class _PollsScreenState extends ConsumerState<PollsScreen> {
                     padding: EdgeInsets.only(top: 8, left: 16, right: 16, bottom: 100 + MediaQuery.paddingOf(context).bottom),
                     itemCount: filteredPolls.length,
                     separatorBuilder: (_, __) => const SizedBox(height: 12),
-                    itemBuilder: (context, index) => _PollCard(poll: filteredPolls[index]),
+                    itemBuilder: (context, index) => _PollCard(index: index, poll: filteredPolls[index]),
                   ),
                 );
               },
@@ -195,7 +196,8 @@ class _PollsScreenState extends ConsumerState<PollsScreen> {
 
 class _PollCard extends StatelessWidget {
   final Poll poll;
-  const _PollCard({required this.poll});
+  final int index;
+  const _PollCard({required this.poll, this.index = 0});
 
   @override
   Widget build(BuildContext context) {
@@ -393,6 +395,6 @@ class _PollCard extends StatelessWidget {
           ),
         ),
       ),
-    );
+    ).animate(delay: (index % 10 * 50).ms).fade(duration: 400.ms).slideY(begin: 0.1, end: 0, duration: 400.ms, curve: Curves.easeOut);
   }
 }

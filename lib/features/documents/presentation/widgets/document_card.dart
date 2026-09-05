@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import '../../data/models/document_models.dart';
 
 class DocumentCard extends StatelessWidget {
   final DocumentModel document;
   final VoidCallback onTap;
+  final int index;
 
   const DocumentCard({
     super.key,
     required this.document,
     required this.onTap,
+    this.index = 0,
   });
 
   @override
@@ -102,6 +105,6 @@ class DocumentCard extends StatelessWidget {
           ),
         ),
       ),
-    );
+    ).animate(delay: (index % 10 * 50).ms).fade(duration: 400.ms).slideY(begin: 0.1, end: 0, duration: 400.ms, curve: Curves.easeOut);
   }
 }

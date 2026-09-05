@@ -114,6 +114,7 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
                       
                       final doc = documents[index];
                       return DocumentCard(
+                        index: index,
                         document: doc,
                         onTap: () {
                           if (doc.fileUrl != null) {
