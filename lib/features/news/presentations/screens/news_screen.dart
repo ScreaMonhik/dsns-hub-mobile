@@ -109,6 +109,7 @@ class _NewsScreenState extends ConsumerState<NewsScreen> {
                       
                       final article = articles[index];
                       return NewsCard(
+                        index: index,
                         article: article,
                         currentUserId: currentUserId,
                         onTap: () => context.push('/news/${article.id}'),

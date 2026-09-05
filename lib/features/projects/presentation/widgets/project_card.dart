@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import '../../data/models/project_models.dart';
 
 class ProjectCard extends StatelessWidget {
@@ -7,6 +8,7 @@ class ProjectCard extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onLike;
   final VoidCallback onDislike;
+  final int index;
 
   const ProjectCard({
     super.key,
@@ -14,6 +16,7 @@ class ProjectCard extends StatelessWidget {
     required this.onTap,
     required this.onLike,
     required this.onDislike,
+    this.index = 0,
   });
 
   @override
@@ -100,34 +103,37 @@ class ProjectCard extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Row(
-                      children: [
-                        _buildActionButton(
-                          context: context,
-                          icon: project.currentUserVote == 'UPVOTE' ? Icons.thumb_up : Icons.thumb_up_alt_outlined,
-                          label: '${project.upvotes}',
-                          onTap: onLike,
-                          isActive: project.currentUserVote == 'UPVOTE',
-                          activeColor: Colors.green.shade600,
-                        ),
-                        const SizedBox(width: 16),
-                        _buildActionButton(
-                          context: context,
-                          icon: project.currentUserVote == 'DOWNVOTE' ? Icons.thumb_down : Icons.thumb_down_alt_outlined,
-                          label: '${project.downvotes}',
-                          onTap: onDislike,
-                          isActive: project.currentUserVote == 'DOWNVOTE',
-                          activeColor: Colors.red.shade600,
-                        ),
-                      ],
-                    ),
-                    _buildActionButton(
-                      context: context,
-                      icon: Icons.comment_outlined,
-                      label: '${project.count?.comments ?? 0}',
-                      onTap: onTap,
-                      isActive: false,
-                      activeColor: theme.colorScheme.primary,
-                    ),
+                        children: [
+                          _buildActionButton(
+                            context: context,
+                            activeIcon: Icons.thumb_up,
+                            inactiveIcon: Icons.thumb_up_alt_outlined,
+                            label: '${project.upvotes}',
+                            onTap: onLike,
+                            isActive: project.currentUserVote == 'UPVOTE',
+                            activeColor: Colors.green.shade600,
+                          ),
+                          const SizedBox(width: 16),
+                          _buildActionButton(
+                            context: context,
+                            activeIcon: Icons.thumb_down,
+                            inactiveIcon: Icons.thumb_down_alt_outlined,
+                            label: '${project.downvotes}',
+                            onTap: onDislike,
+                            isActive: project.currentUserVote == 'DOWNVOTE',
+                            activeColor: Colors.red.shade600,
+                          ),
+                        ],
+                      ),
+                      _buildActionButton(
+                        context: context,
+                        activeIcon: Icons.comment,
+                        inactiveIcon: Icons.comment_outlined,
+                        label: '${project.count?.comments ?? 0}',
+                        onTap: onTap,
+                        isActive: false,
+                        activeColor: theme.colorScheme.primary,
+                      ),
                   ],
                 ),
               ],
@@ -135,12 +141,13 @@ class ProjectCard extends StatelessWidget {
           ),
         ),
       ),
-    );
+    ).animate(delay: (index % 10 * 50).ms).fade(duration: 400.ms).slideY(begin: 0.1, end: 0, duration: 400.ms, curve: Curves.easeOut);
   }
 
   Widget _buildActionButton({
     required BuildContext context,
-    required IconData icon,
+    required IconData activeIcon,
+    required IconData inactiveIcon,
     required String label,
     required VoidCallback onTap,
     required bool isActive,
@@ -149,23 +156,46 @@ class ProjectCard extends StatelessWidget {
     final theme = Theme.of(context);
     final displayColor = isActive ? activeColor : theme.colorScheme.onSurfaceVariant;
     
-    return InkWell(
+    return GestureDetector(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
+      behavior: HitTestBehavior.opaque,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 22, color: displayColor),
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                Icon(inactiveIcon, size: 22, color: theme.colorScheme.onSurfaceVariant),
+                if (isActive)
+                  Icon(activeIcon, size: 22, color: activeColor)
+                      .animate()
+                      .scale(
+                        begin: const Offset(0.0, 0.0),
+                        end: const Offset(1.0, 1.0),
+                        duration: 350.ms,
+                        curve: Curves.easeOutBack, // Заповнення з невеликим баунсом
+                      )
+                      .fade(duration: 150.ms),
+              ],
+            ),
             const SizedBox(width: 6),
             Text(
               label,
-              style: theme.textTheme.labelLarge?.copyWith(color: displayColor, fontWeight: FontWeight.bold),
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: displayColor,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ],
         ),
       ),
+    ).animate(key: ValueKey('${activeIcon.codePoint}_$isActive')).scale(
+      begin: const Offset(0.9, 0.9), // Стискання кнопки при натисканні
+      end: const Offset(1.0, 1.0),
+      duration: 200.ms,
+      curve: Curves.easeOut,
     );
   }
 }

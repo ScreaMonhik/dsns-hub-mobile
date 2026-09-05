@@ -126,6 +126,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                       
                       final project = projects[index];
                       return ProjectCard(
+                        index: index,
                         project: project,
                         onTap: () => context.push('/projects/${project.id}'),
                         onLike: () => _handleVote(context, project.id, 'UPVOTE'),

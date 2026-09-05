@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../../data/models/news_models.dart';
 import 'tiptap_renderer.dart';
 import '../../../../core/presentation/widgets/auth_network_image.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 class NewsCard extends StatelessWidget {
   final NewsArticle article;
@@ -11,6 +12,7 @@ class NewsCard extends StatelessWidget {
   final VoidCallback onDislike;
   final VoidCallback onCommentTap;
   final String? currentUserId;
+  final int index;
 
   const NewsCard({
     super.key,
@@ -20,6 +22,7 @@ class NewsCard extends StatelessWidget {
     required this.onDislike,
     required this.onCommentTap,
     this.currentUserId,
+    this.index = 0,
   });
 
   @override
@@ -122,9 +125,8 @@ class NewsCard extends StatelessWidget {
                         children: [
                           _buildActionButton(
                             context: context,
-                            icon: article.currentUserVote == 'UPVOTE' 
-                                ? Icons.thumb_up 
-                                : Icons.thumb_up_alt_outlined,
+                            activeIcon: Icons.thumb_up,
+                            inactiveIcon: Icons.thumb_up_alt_outlined,
                             label: '${article.upvotes > 0 ? article.upvotes : (article.count?.likes ?? 0)}',
                             onTap: onLike,
                             isActive: article.currentUserVote == 'UPVOTE',
@@ -133,9 +135,8 @@ class NewsCard extends StatelessWidget {
                           const SizedBox(width: 16),
                           _buildActionButton(
                             context: context,
-                            icon: article.currentUserVote == 'DOWNVOTE' 
-                                ? Icons.thumb_down 
-                                : Icons.thumb_down_alt_outlined,
+                            activeIcon: Icons.thumb_down,
+                            inactiveIcon: Icons.thumb_down_alt_outlined,
                             label: '${article.downvotes > 0 ? article.downvotes : (article.count?.dislikes ?? 0)}',
                             onTap: onDislike,
                             isActive: article.currentUserVote == 'DOWNVOTE',
@@ -145,7 +146,8 @@ class NewsCard extends StatelessWidget {
                       ),
                       _buildActionButton(
                         context: context,
-                        icon: Icons.comment_outlined,
+                        activeIcon: Icons.comment,
+                        inactiveIcon: Icons.comment_outlined,
                         label: '${article.count?.comments ?? 0}',
                         onTap: onCommentTap,
                         isActive: false,
@@ -159,13 +161,13 @@ class NewsCard extends StatelessWidget {
           ],
         ),
       ),
-    )
-    );
+    )).animate(delay: (index % 10 * 50).ms).fade(duration: 400.ms).slideY(begin: 0.1, end: 0, duration: 400.ms, curve: Curves.easeOut);
   }
 
   Widget _buildActionButton({
     required BuildContext context,
-    required IconData icon,
+    required IconData activeIcon,
+    required IconData inactiveIcon,
     required String label,
     required VoidCallback onTap,
     required bool isActive,
@@ -174,18 +176,29 @@ class NewsCard extends StatelessWidget {
     final theme = Theme.of(context);
     final displayColor = isActive ? activeColor : theme.colorScheme.onSurfaceVariant;
     
-    return InkWell(
+    return GestureDetector(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
+      behavior: HitTestBehavior.opaque,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              icon, 
-              size: 22, 
-              color: displayColor,
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                Icon(inactiveIcon, size: 22, color: theme.colorScheme.onSurfaceVariant),
+                if (isActive)
+                  Icon(activeIcon, size: 22, color: activeColor)
+                      .animate()
+                      .scale(
+                        begin: const Offset(0.0, 0.0),
+                        end: const Offset(1.0, 1.0),
+                        duration: 350.ms,
+                        curve: Curves.easeOutBack, // Легке вистрибування контуру
+                      )
+                      .fade(duration: 150.ms),
+              ],
             ),
             const SizedBox(width: 6),
             Text(
@@ -198,6 +211,11 @@ class NewsCard extends StatelessWidget {
           ],
         ),
       ),
+    ).animate(key: ValueKey('${activeIcon.codePoint}_$isActive')).scale(
+      begin: const Offset(0.9, 0.9), // Стискання кнопки при натисканні
+      end: const Offset(1.0, 1.0),
+      duration: 200.ms,
+      curve: Curves.easeOut,
     );
   }
 }
