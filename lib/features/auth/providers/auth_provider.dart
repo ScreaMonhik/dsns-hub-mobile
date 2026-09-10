@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../../../core/security/biometric_service.dart';
 import '../../../core/security/jwt_utils.dart';
 import '../../../core/storage/secure_storage_provider.dart';
 import '../../../core/services/notification_service.dart';
@@ -84,7 +85,6 @@ class AuthNotifier extends StateNotifier<AsyncValue<bool>> {
       await _storage.delete(key: 'biometric_password');
 
       final token = await _storage.read(key: 'jwt_token');
-      final refreshToken = await _storage.read(key: 'refresh_token');
 
       if (token != null && token.isNotEmpty && !JwtUtils.isExpired(token)) {
         _ref.read(currentTokenProvider.notifier).state = token;
@@ -93,16 +93,9 @@ class AuthNotifier extends StateNotifier<AsyncValue<bool>> {
         return;
       }
 
-      if (refreshToken != null && refreshToken.isNotEmpty) {
-        final refreshed = await _refreshSession(refreshToken);
-        if (refreshed) {
-          state = const AsyncValue.data(true);
-          _syncFcmToken();
-          return;
-        }
-        await _clearSessionKeys();
-      } else if (token != null && token.isNotEmpty) {
-        await _clearSessionKeys();
+      // Access протух — на логін. Refresh лишаємо для входу через Face ID / Touch ID.
+      if (token != null && token.isNotEmpty) {
+        await _storage.delete(key: 'jwt_token');
       }
 
       _ref.read(currentTokenProvider.notifier).state = null;
@@ -118,10 +111,38 @@ class AuthNotifier extends StateNotifier<AsyncValue<bool>> {
     try {
       final tokens = await _repository.login(email, password);
       await _persistTokens(tokens['accessToken']!, tokens['refreshToken']!);
+      await _storage.write(key: 'biometric_email', value: email.trim());
       await _storage.delete(key: 'biometric_password');
       state = const AsyncValue.data(true);
       _syncFcmToken();
     } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
+  }
+
+  Future<void> loginWithBiometrics() async {
+    final refreshToken = await _storage.read(key: 'refresh_token');
+    if (refreshToken == null || refreshToken.isEmpty) {
+      throw Exception('Збереженої сесії немає. Увійдіть за паролем');
+    }
+
+    final confirmed = await BiometricService.authenticate(
+      biometricOnly: true,
+      localizedReason: 'Увійдіть у DSNS Hub за допомогою біометрії',
+    );
+    if (!confirmed) return;
+
+    state = const AsyncValue.loading();
+    try {
+      final refreshed = await _refreshSession(refreshToken);
+      if (!refreshed) {
+        await _storage.delete(key: 'refresh_token');
+        throw Exception('Сесія закінчилась. Увійдіть за паролем');
+      }
+      state = const AsyncValue.data(true);
+      _syncFcmToken();
+    } catch (e, st) {
+      _ref.read(currentTokenProvider.notifier).state = null;
       state = AsyncValue.error(e, st);
     }
   }
@@ -169,3 +190,28 @@ class AuthNotifier extends StateNotifier<AsyncValue<bool>> {
     }
   }
 }
+
+class BiometricLoginOffer {
+  const BiometricLoginOffer({
+    required this.available,
+    this.email,
+  });
+
+  final bool available;
+  final String? email;
+}
+
+final biometricLoginOfferProvider = FutureProvider<BiometricLoginOffer>((ref) async {
+  ref.watch(authStateProvider);
+
+  final storage = ref.read(secureStorageProvider);
+  final refreshToken = await storage.read(key: 'refresh_token');
+  final email = await storage.read(key: 'biometric_email');
+  final canUseBiometrics = await BiometricService.isBiometricLoginAvailable();
+
+  return BiometricLoginOffer(
+    available: canUseBiometrics && refreshToken != null && refreshToken.isNotEmpty,
+    email: email,
+  );
+});
+

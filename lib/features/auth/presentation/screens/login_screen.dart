@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/auth_provider.dart';
 import '../../../../core/presentation/utils/app_snackbar.dart';
+import '../../../../core/security/biometric_service.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -16,12 +17,37 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isPasswordVisible = false;
+  IconData _biometricIcon = Icons.fingerprint;
+  bool _emailPrefillApplied = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadBiometricIcon();
+  }
+
+  Future<void> _loadBiometricIcon() async {
+    final icon = await BiometricService.getBiometricIcon();
+    if (mounted) {
+      setState(() => _biometricIcon = icon);
+    }
+  }
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loginWithBiometrics() async {
+    FocusScope.of(context).unfocus();
+    try {
+      await ref.read(authStateProvider.notifier).loginWithBiometrics();
+    } catch (e) {
+      if (!mounted) return;
+      AppSnackBar.showError(context, e.toString().replaceAll('Exception: ', ''));
+    }
   }
 
   void _submit() {
@@ -51,7 +77,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authStateProvider);
+    final biometricOffer = ref.watch(biometricLoginOfferProvider).valueOrNull;
     final isLoading = authState.isLoading;
+    final showBiometricLogin = biometricOffer?.available == true;
+
+    ref.listen(biometricLoginOfferProvider, (previous, next) {
+      final email = next.valueOrNull?.email;
+      if (_emailPrefillApplied || email == null || email.isEmpty || _emailController.text.isNotEmpty) {
+        return;
+      }
+      _emailPrefillApplied = true;
+      _emailController.text = email;
+    });
 
     ref.listen<AsyncValue<bool>>(authStateProvider, (previous, next) {
       if (!next.isLoading && next.hasError) {
@@ -176,6 +213,49 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                     ),
                     const SizedBox(height: 32),
+                    if (showBiometricLogin) ...[
+                      SizedBox(
+                        height: 56,
+                        child: OutlinedButton.icon(
+                          onPressed: isLoading ? null : _loginWithBiometrics,
+                          icon: Icon(_biometricIcon, size: 26),
+                          label: const Text(
+                            'Увійти з Face ID / Touch ID',
+                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Пароль не потрібен, поки збережена сесія ще дійсна',
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Row(
+                        children: [
+                          Expanded(child: Divider(color: theme.colorScheme.outlineVariant)),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            child: Text(
+                              'або паролем',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                          Expanded(child: Divider(color: theme.colorScheme.outlineVariant)),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                    ],
                     SizedBox(
                       height: 56,
                       child: FilledButton(

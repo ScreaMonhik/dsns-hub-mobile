@@ -4,6 +4,17 @@ import 'package:local_auth/local_auth.dart';
 class BiometricService {
   static final LocalAuthentication _auth = LocalAuthentication();
 
+  static Future<bool> isBiometricLoginAvailable() async {
+    try {
+      if (!await _auth.isDeviceSupported()) return false;
+      if (!await _auth.canCheckBiometrics) return false;
+      final available = await _auth.getAvailableBiometrics();
+      return available.isNotEmpty;
+    } catch (_) {
+      return false;
+    }
+  }
+
   static Future<IconData> getBiometricIcon() async {
     try {
       final availableBiometrics = await _auth.getAvailableBiometrics();
@@ -17,7 +28,10 @@ class BiometricService {
     return Icons.security;
   }
 
-  static Future<bool> authenticate() async {
+  static Future<bool> authenticate({
+    bool biometricOnly = false,
+    String localizedReason = 'Підтвердіть особу для доступу до системи DSNS Hub',
+  }) async {
     try {
       final isSupported = await _auth.isDeviceSupported();
       if (!isSupported) {
@@ -25,10 +39,10 @@ class BiometricService {
       }
 
       return await _auth.authenticate(
-        localizedReason: 'Підтвердіть особу для доступу до системи DSNS Hub',
-        options: const AuthenticationOptions(
+        localizedReason: localizedReason,
+        options: AuthenticationOptions(
           stickyAuth: true,
-          biometricOnly: false,
+          biometricOnly: biometricOnly,
           useErrorDialogs: true,
           sensitiveTransaction: true,
         ),
