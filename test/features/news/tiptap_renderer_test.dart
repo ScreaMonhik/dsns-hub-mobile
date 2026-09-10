@@ -120,6 +120,27 @@ void main() {
         youtubeWatchUrl('https://www.youtube.com/embed/abc123'),
         'https://www.youtube.com/watch?v=abc123',
       );
+      expect(
+        youtubeVideoId('https://www.youtube.com/watch?v=dQw4w9wgxcq'),
+        'dQw4w9wgxcq',
+      );
+      expect(youtubeVideoId('https://youtu.be/dQw4w9wgxcq'), 'dQw4w9wgxcq');
+      expect(
+        youtubeVideoId('https://www.youtube.com/embed/dQw4w9wgxcq'),
+        'dQw4w9wgxcq',
+      );
+      expect(
+        youtubeVideoId('https://www.youtube-nocookie.com/embed/dQw4w9wgxcq'),
+        'dQw4w9wgxcq',
+      );
+      expect(
+        youtubeVideoId('https://www.youtube.com/shorts/dQw4w9wgxcq'),
+        'dQw4w9wgxcq',
+      );
+      expect(
+        youtubeVideoId('https://evil.example/watch?v=dQw4w9wgxcq'),
+        isNull,
+      );
     });
   });
 

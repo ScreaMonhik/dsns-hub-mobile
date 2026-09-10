@@ -29,7 +29,7 @@
 - Стрічка з пагінацією, пошуком і фільтром за категоріями.
 - Деталі з рендером того ж TipTap JSON, що зберігає адмінка: H2/H3, абзаци, списки, цитати, зображення, завантажене відео, YouTube, code block, горизонтальна лінія, marks (bold / italic / underline / strike / code / link).
 - Дата на картці й у деталях — `publishedAt`, інакше `createdAt` (як прев’ю в адмінці).
-- YouTube відкривається зовні як watch-URL; дозволені лише youtube.com / youtu.be / youtube-nocookie.
+- YouTube грає вбудованим плеєром (youtube-nocookie). Якщо id не розпізнано — картка відкриває ролик зовні. Дозволені лише youtube.com / youtu.be / youtube-nocookie.
 - Лайки / дизлайки, коментарі.
 - Шеринг через `dsns://hub.dsns.gov.ua/news/:id`.
 - Після голосу оновлюється лише картка, а не вся стрічка.
@@ -75,7 +75,7 @@
 | Auth lock | `local_auth` |
 | Файли | `path_provider`, Syncfusion PDF, `printing`, `share_plus` |
 | Сповіщення | `firebase_core`, `firebase_messaging`, `flutter_local_notifications` |
-| Медіа в новинах | `video_player` (завантажене відео з JWT), `url_launcher` (YouTube / посилання) |
+| Медіа в новинах | `video_player` (завантажене відео з JWT), `youtube_player_iframe` (YouTube в новині), `url_launcher` (посилання) |
 | Інше | `connectivity_plus`, `image_picker`, `package_info_plus` |
 
 Архітектура екранів — feature-first:

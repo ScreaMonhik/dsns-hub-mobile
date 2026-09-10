@@ -5,6 +5,7 @@ import '../../../../core/config/app_config.dart';
 import '../../../../core/presentation/widgets/auth_network_image.dart';
 import '../../../../core/utils/safe_url.dart';
 import 'tiptap_video_player.dart';
+import 'tiptap_youtube_player.dart';
 
 class TipTapHelper {
   static final Map<String, String> _plainTextCache = <String, String>{};
@@ -229,41 +230,7 @@ class _TipTapRendererState extends State<TipTapRenderer> {
         }
         return Padding(
           padding: const EdgeInsets.symmetric(vertical: 12.0),
-          child: InkWell(
-            onTap: () => launchSafeYoutubeUrl(src),
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.errorContainer,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: theme.colorScheme.error.withValues(alpha: 0.3),
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.play_circle_fill,
-                    color: theme.colorScheme.error,
-                    size: 36,
-                  ),
-                  const SizedBox(width: 12),
-                  Flexible(
-                    child: Text(
-                      'Дивитись відео на YouTube',
-                      style: TextStyle(
-                        color: theme.colorScheme.error,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+          child: TipTapYoutubePlayer(src: src),
         );
 
       case 'horizontalRule':
