@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../providers/profile_provider.dart';
 import '../../../auth/providers/auth_provider.dart';
@@ -127,6 +128,66 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 _buildInfoTile(context, Icons.email_outlined, 'Email', profile.email),
                 const SizedBox(height: 16),
                 _buildInfoTile(context, Icons.work_outline, 'Роль', profile.role),
+                const SizedBox(height: 32),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Сповіщення',
+                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _notificationSwitchTile(
+                  title: 'Тривоги',
+                  subtitle: 'Тривоги не можна вимкнути',
+                  value: true,
+                  onChanged: null,
+                ),
+                const SizedBox(height: 8),
+                _notificationSwitchTile(
+                  title: 'Новини',
+                  subtitle: 'Push про нові публікації',
+                  value: profile.notifyNews,
+                  onChanged: (value) async {
+                    try {
+                      await ref.read(profileProvider.notifier).updateNotificationPrefs(notifyNews: value);
+                    } catch (e) {
+                      if (context.mounted) {
+                        AppSnackBar.showError(context, e.toString().replaceAll('Exception: ', ''));
+                      }
+                    }
+                  },
+                ),
+                const SizedBox(height: 8),
+                _notificationSwitchTile(
+                  title: 'Опитування',
+                  subtitle: 'Нові опитування та нагадування про дедлайн',
+                  value: profile.notifyPolls,
+                  onChanged: (value) async {
+                    try {
+                      await ref.read(profileProvider.notifier).updateNotificationPrefs(notifyPolls: value);
+                    } catch (e) {
+                      if (context.mounted) {
+                        AppSnackBar.showError(context, e.toString().replaceAll('Exception: ', ''));
+                      }
+                    }
+                  },
+                ),
+                const SizedBox(height: 8),
+                Material(
+                  color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(16),
+                  child: ListTile(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      side: BorderSide(color: theme.colorScheme.outlineVariant),
+                    ),
+                    leading: Icon(Icons.campaign_outlined, color: theme.colorScheme.primary),
+                    title: const Text('Історія тривог'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => context.push('/profile/alerts'),
+                  ),
+                ),
                 const SizedBox(height: 32),
                 Align(
                   alignment: Alignment.centerLeft,
@@ -278,6 +339,28 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _notificationSwitchTile({
+    required String title,
+    required String subtitle,
+    required bool value,
+    required ValueChanged<bool>? onChanged,
+  }) {
+    final theme = Theme.of(context);
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+      ),
+      child: SwitchListTile(
+        title: Text(title, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+        subtitle: Text(subtitle),
+        value: value,
+        onChanged: onChanged,
       ),
     );
   }

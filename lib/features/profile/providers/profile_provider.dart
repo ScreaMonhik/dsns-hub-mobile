@@ -39,4 +39,31 @@ class ProfileNotifier extends AsyncNotifier<UserProfile?> {
   Future<void> changePassword(String oldPassword, String newPassword) async {
     await ref.read(profileRepositoryProvider).changePassword(oldPassword, newPassword);
   }
+
+  Future<void> updateNotificationPrefs({
+    bool? notifyNews,
+    bool? notifyPolls,
+  }) async {
+    final current = state.value;
+    if (current == null) return;
+
+    final previous = state;
+    state = AsyncValue.data(
+      current.copyWith(
+        notifyNews: notifyNews ?? current.notifyNews,
+        notifyPolls: notifyPolls ?? current.notifyPolls,
+      ),
+    );
+
+    try {
+      final updated = await ref.read(profileRepositoryProvider).updatePreferences(
+        notifyNews: notifyNews,
+        notifyPolls: notifyPolls,
+      );
+      state = AsyncValue.data(updated);
+    } catch (e, st) {
+      state = previous.hasValue ? previous : AsyncValue.error(e, st);
+      rethrow;
+    }
+  }
 }

@@ -12,6 +12,9 @@ abstract class UserProfile with _$UserProfile {
     required String lastName,
     required String role,
     String? avatarUrl,
+    @Default(false) bool notifyNews,
+    @Default(true) bool notifyPolls,
+    @Default(true) bool notifyEmergency,
   }) = _UserProfile;
 
   factory UserProfile.fromJson(Map<String, dynamic> json) => _$UserProfileFromJson(json);

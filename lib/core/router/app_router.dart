@@ -14,6 +14,8 @@ import '../../features/chats/presentation/screens/chats_screen.dart';
 import '../../features/chats/presentation/screens/chat_detail_screen.dart';
 import '../../features/chats/presentation/screens/chat_info_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
+import '../../features/profile/presentation/screens/alerts_inbox_screen.dart';
+import '../../features/profile/presentation/screens/alert_detail_screen.dart';
 import '../../features/documents/presentation/screens/documents_screen.dart';
 import '../../features/documents/presentation/screens/document_pdf_screen.dart';
 import '../../features/documents/data/models/document_models.dart';
@@ -65,6 +67,20 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/profile',
         builder: (context, state) => const ProfileScreen(),
+        routes: [
+          GoRoute(
+            path: 'alerts',
+            builder: (context, state) => const AlertsInboxScreen(),
+            routes: [
+              GoRoute(
+                path: ':id',
+                builder: (context, state) => AlertDetailScreen(
+                  alertId: state.pathParameters['id']!,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
       StatefulShellRoute(
         builder: (context, state, navigationShell) {

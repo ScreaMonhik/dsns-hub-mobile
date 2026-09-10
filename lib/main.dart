@@ -43,8 +43,9 @@ class _DsnsHubAppState extends ConsumerState<DsnsHubApp> {
   @override
   void initState() {
     super.initState();
-    ref.read(notificationServiceProvider).initialize();
-    
+    final notifications = ref.read(notificationServiceProvider);
+    notifications.initialize();
+
     _lifecycleListener = AppLifecycleListener(
       onPause: () => ref.read(appLockProvider.notifier).onPaused(),
       onResume: () => ref.read(appLockProvider.notifier).onResumed(),
@@ -61,6 +62,7 @@ class _DsnsHubAppState extends ConsumerState<DsnsHubApp> {
   Widget build(BuildContext context) {
     final router = ref.watch(routerProvider);
     final themeMode = ref.watch(themeProvider);
+    ref.read(notificationServiceProvider).onOpen = router.go;
 
     // Автоматичне оновлення всіх даних при відновленні інтернету
     ref.listen<AsyncValue<List<ConnectivityResult>>>(connectivityProvider, (previous, next) {

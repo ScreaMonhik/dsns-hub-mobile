@@ -19,6 +19,20 @@ class ProfileRepository {
     return UserProfile.fromJson(response.data as Map<String, dynamic>);
   }
 
+  Future<UserProfile> updatePreferences({
+    bool? notifyNews,
+    bool? notifyPolls,
+  }) async {
+    final response = await _dio.patch(
+      '/users/me',
+      data: {
+        'notifyNews': ?notifyNews,
+        'notifyPolls': ?notifyPolls,
+      },
+    );
+    return UserProfile.fromJson(response.data as Map<String, dynamic>);
+  }
+
   Future<String> uploadAvatar(String filePath) async {
     // 1. Примусово читаємо файл у пам'ять, щоб уникнути проблеми з 0-байт потоком
     final file = File(filePath);
