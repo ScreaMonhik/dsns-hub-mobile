@@ -27,7 +27,9 @@
 
 ### Новини
 - Стрічка з пагінацією, пошуком і фільтром за категоріями.
-- Деталі з рендером TipTap JSON (текст, списки, цитати, зображення, YouTube-посилання).
+- Деталі з рендером того ж TipTap JSON, що зберігає адмінка: H2/H3, абзаци, списки, цитати, зображення, завантажене відео, YouTube, code block, горизонтальна лінія, marks (bold / italic / underline / strike / code / link).
+- Дата на картці й у деталях — `publishedAt`, інакше `createdAt` (як прев’ю в адмінці).
+- YouTube відкривається зовні як watch-URL; дозволені лише youtube.com / youtu.be / youtube-nocookie.
 - Лайки / дизлайки, коментарі.
 - Шеринг через `dsns://hub.dsns.gov.ua/news/:id`.
 - Після голосу оновлюється лише картка, а не вся стрічка.
@@ -73,7 +75,8 @@
 | Auth lock | `local_auth` |
 | Файли | `path_provider`, Syncfusion PDF, `printing`, `share_plus` |
 | Сповіщення | `firebase_core`, `firebase_messaging`, `flutter_local_notifications` |
-| Інше | `connectivity_plus`, `image_picker`, `url_launcher`, `package_info_plus` |
+| Медіа в новинах | `video_player` (завантажене відео з JWT), `url_launcher` (YouTube / посилання) |
+| Інше | `connectivity_plus`, `image_picker`, `package_info_plus` |
 
 Архітектура екранів — feature-first:
 
@@ -88,7 +91,7 @@ lib/
     storage/
     services/                   # FCM
     presentation/
-    utils/                      # дати, safe URL / file
+    utils/                      # дати, safe URL / file, media URL
   features/
     auth/
     news/
@@ -282,8 +285,10 @@ Dio: connect 15 с, receive/send 30 с; завантаження PDF — receive
 ## Збірка
 
 ```bash
+flutter pub get
+dart run build_runner build --delete-conflicting-outputs   # *.freezed.dart / *.g.dart у .gitignore
 flutter analyze
-flutter test                          # якщо з’являться тести
+flutter test
 flutter build apk --dart-define=API_BASE_URL=https://...
 flutter build appbundle --dart-define=API_BASE_URL=https://...
 flutter build ipa --dart-define=API_BASE_URL=https://...

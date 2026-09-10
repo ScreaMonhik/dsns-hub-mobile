@@ -12,7 +12,8 @@ abstract class NewsAuthor with _$NewsAuthor {
     String? avatarUrl,
   }) = _NewsAuthor;
 
-  factory NewsAuthor.fromJson(Map<String, dynamic> json) => _$NewsAuthorFromJson(json);
+  factory NewsAuthor.fromJson(Map<String, dynamic> json) =>
+      _$NewsAuthorFromJson(json);
 }
 
 @freezed
@@ -23,17 +24,17 @@ abstract class NewsCategory with _$NewsCategory {
     int? orderIndex,
   }) = _NewsCategory;
 
-  factory NewsCategory.fromJson(Map<String, dynamic> json) => _$NewsCategoryFromJson(json);
+  factory NewsCategory.fromJson(Map<String, dynamic> json) =>
+      _$NewsCategoryFromJson(json);
 }
 
 @freezed
 abstract class NewsDepartment with _$NewsDepartment {
-  const factory NewsDepartment({
-    required String id,
-    String? name,
-  }) = _NewsDepartment;
+  const factory NewsDepartment({required String id, String? name}) =
+      _NewsDepartment;
 
-  factory NewsDepartment.fromJson(Map<String, dynamic> json) => _$NewsDepartmentFromJson(json);
+  factory NewsDepartment.fromJson(Map<String, dynamic> json) =>
+      _$NewsDepartmentFromJson(json);
 }
 
 @freezed
@@ -44,7 +45,8 @@ abstract class NewsCounts with _$NewsCounts {
     @Default(0) int dislikes,
   }) = _NewsCounts;
 
-  factory NewsCounts.fromJson(Map<String, dynamic> json) => _$NewsCountsFromJson(json);
+  factory NewsCounts.fromJson(Map<String, dynamic> json) =>
+      _$NewsCountsFromJson(json);
 }
 
 @freezed
@@ -56,18 +58,17 @@ abstract class NewsComment with _$NewsComment {
     NewsAuthor? author,
   }) = _NewsComment;
 
-  factory NewsComment.fromJson(Map<String, dynamic> json) => _$NewsCommentFromJson(json);
+  factory NewsComment.fromJson(Map<String, dynamic> json) =>
+      _$NewsCommentFromJson(json);
 }
 
 @freezed
 abstract class NewsVote with _$NewsVote {
-  const factory NewsVote({
-    String? voteType,
-    String? userId,
-    String? newsId,
-  }) = _NewsVote;
+  const factory NewsVote({String? voteType, String? userId, String? newsId}) =
+      _NewsVote;
 
-  factory NewsVote.fromJson(Map<String, dynamic> json) => _$NewsVoteFromJson(json);
+  factory NewsVote.fromJson(Map<String, dynamic> json) =>
+      _$NewsVoteFromJson(json);
 }
 
 @freezed
@@ -80,6 +81,7 @@ abstract class NewsArticle with _$NewsArticle {
     String? status,
     String? categoryId,
     DateTime? createdAt,
+    DateTime? publishedAt,
     String? authorId,
     NewsAuthor? author,
     NewsCategory? category,
@@ -92,7 +94,8 @@ abstract class NewsArticle with _$NewsArticle {
     String? currentUserVote,
   }) = _NewsArticle;
 
-  factory NewsArticle.fromJson(Map<String, dynamic> json) => _$NewsArticleFromJson(json);
+  factory NewsArticle.fromJson(Map<String, dynamic> json) =>
+      _$NewsArticleFromJson(json);
 }
 
 @freezed
@@ -104,7 +107,8 @@ abstract class NewsPaginationMeta with _$NewsPaginationMeta {
     @Default(10) int limit,
   }) = _NewsPaginationMeta;
 
-  factory NewsPaginationMeta.fromJson(Map<String, dynamic> json) => _$NewsPaginationMetaFromJson(json);
+  factory NewsPaginationMeta.fromJson(Map<String, dynamic> json) =>
+      _$NewsPaginationMetaFromJson(json);
 }
 
 @freezed
@@ -114,5 +118,11 @@ abstract class NewsPaginatedResponse with _$NewsPaginatedResponse {
     NewsPaginationMeta? meta,
   }) = _NewsPaginatedResponse;
 
-  factory NewsPaginatedResponse.fromJson(Map<String, dynamic> json) => _$NewsPaginatedResponseFromJson(json);
+  factory NewsPaginatedResponse.fromJson(Map<String, dynamic> json) =>
+      _$NewsPaginatedResponseFromJson(json);
+}
+
+extension NewsArticleDisplay on NewsArticle {
+  /// Same date the admin preview shows: scheduled/publish time, else created.
+  DateTime? get displayDate => publishedAt ?? createdAt;
 }

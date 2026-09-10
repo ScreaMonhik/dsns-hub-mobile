@@ -16,7 +16,7 @@ class NewsDetailScreen extends ConsumerStatefulWidget {
   final bool scrollToComments;
 
   const NewsDetailScreen({
-    super.key, 
+    super.key,
     required this.newsId,
     this.scrollToComments = false,
   });
@@ -29,7 +29,7 @@ class _NewsDetailScreenState extends ConsumerState<NewsDetailScreen> {
   final TextEditingController _commentController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final GlobalKey _commentsSectionKey = GlobalKey();
-  
+
   bool _hasScrolled = false;
   bool _isSubmitting = false;
   Timer? _scrollTimer;
@@ -52,7 +52,7 @@ class _NewsDetailScreenState extends ConsumerState<NewsDetailScreen> {
       await ref.read(newsInteractionProvider).addComment(widget.newsId, text);
       _commentController.clear();
       FocusScope.of(context).unfocus();
-      
+
       // Скрол до кінця після додавання коментаря
       _scrollTimer?.cancel();
       _scrollTimer = Timer(const Duration(milliseconds: 300), () {
@@ -103,7 +103,7 @@ class _NewsDetailScreenState extends ConsumerState<NewsDetailScreen> {
           // Автоскрол до коментарів при переході
           if (widget.scrollToComments && !_hasScrolled) {
             _hasScrolled = true; // Set immediately to prevent repeated triggers
-            
+
             WidgetsBinding.instance.addPostFrameCallback((_) {
               _scrollTimer?.cancel();
               _scrollTimer = Timer(const Duration(milliseconds: 600), () {
@@ -112,7 +112,8 @@ class _NewsDetailScreenState extends ConsumerState<NewsDetailScreen> {
                     _commentsSectionKey.currentContext!,
                     duration: const Duration(milliseconds: 600),
                     curve: Curves.easeInOut,
-                    alignment: 0.05, // Align slightly below the top edge of the screen
+                    alignment:
+                        0.05, // Align slightly below the top edge of the screen
                   );
                 }
               });
@@ -134,7 +135,10 @@ class _NewsDetailScreenState extends ConsumerState<NewsDetailScreen> {
                         children: [
                           if (article.category != null)
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
                               decoration: BoxDecoration(
                                 color: theme.colorScheme.primaryContainer,
                                 borderRadius: BorderRadius.circular(8),
@@ -150,8 +154,10 @@ class _NewsDetailScreenState extends ConsumerState<NewsDetailScreen> {
                           else
                             const SizedBox.shrink(),
                           Text(
-                            article.createdAt != null 
-                                ? AppDateFormats.longDayMonthYearTime.format(article.createdAt!.toLocal())
+                            article.displayDate != null
+                                ? AppDateFormats.longDayMonthYearTime.format(
+                                    article.displayDate!.toLocal(),
+                                  )
                                 : 'Дата не вказана',
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: theme.colorScheme.onSurfaceVariant,
@@ -169,7 +175,8 @@ class _NewsDetailScreenState extends ConsumerState<NewsDetailScreen> {
                         ),
                       ),
                       const SizedBox(height: 24),
-                      if (article.imageUrl != null && article.imageUrl!.isNotEmpty) ...[
+                      if (article.imageUrl != null &&
+                          article.imageUrl!.isNotEmpty) ...[
                         ClipRRect(
                           borderRadius: BorderRadius.circular(16),
                           child: AuthNetworkImage(
@@ -183,7 +190,7 @@ class _NewsDetailScreenState extends ConsumerState<NewsDetailScreen> {
                       // Рендерер JSON від TipTap
                       if (article.content != null)
                         TipTapRenderer(jsonContent: article.content!),
-                      
+
                       const SizedBox(height: 32),
                       const Divider(),
                       const SizedBox(height: 8),
@@ -191,44 +198,64 @@ class _NewsDetailScreenState extends ConsumerState<NewsDetailScreen> {
                       Row(
                         children: [
                           _buildInteractionButton(
-                            icon: article.currentUserVote == 'UPVOTE' 
-                                ? Icons.thumb_up 
+                            icon: article.currentUserVote == 'UPVOTE'
+                                ? Icons.thumb_up
                                 : Icons.thumb_up_alt_outlined,
-                            label: '${article.upvotes > 0 ? article.upvotes : (article.count?.likes ?? 0)}',
+                            label:
+                                '${article.upvotes > 0 ? article.upvotes : (article.count?.likes ?? 0)}',
                             isActive: article.currentUserVote == 'UPVOTE',
                             activeColor: Colors.green.shade600,
                             onTap: () async {
                               HapticFeedback.lightImpact();
                               try {
-                                await ref.read(newsInteractionProvider).vote(article.id, 'UPVOTE');
+                                await ref
+                                    .read(newsInteractionProvider)
+                                    .vote(article.id, 'UPVOTE');
                               } catch (e) {
                                 if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: Colors.red));
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(e.toString()),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
                                 }
                               }
                             },
                           ),
                           const SizedBox(width: 16),
                           _buildInteractionButton(
-                            icon: article.currentUserVote == 'DOWNVOTE' 
-                                ? Icons.thumb_down 
+                            icon: article.currentUserVote == 'DOWNVOTE'
+                                ? Icons.thumb_down
                                 : Icons.thumb_down_alt_outlined,
-                            label: '${article.downvotes > 0 ? article.downvotes : (article.count?.dislikes ?? 0)}',
+                            label:
+                                '${article.downvotes > 0 ? article.downvotes : (article.count?.dislikes ?? 0)}',
                             isActive: article.currentUserVote == 'DOWNVOTE',
                             activeColor: Colors.red.shade600,
                             onTap: () async {
                               HapticFeedback.lightImpact();
                               try {
-                                await ref.read(newsInteractionProvider).vote(article.id, 'DOWNVOTE');
+                                await ref
+                                    .read(newsInteractionProvider)
+                                    .vote(article.id, 'DOWNVOTE');
                               } catch (e) {
                                 if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: Colors.red));
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(e.toString()),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
                                 }
                               }
                             },
                           ),
                           const Spacer(),
-                          Icon(Icons.comment_outlined, size: 20, color: theme.colorScheme.outline),
+                          Icon(
+                            Icons.comment_outlined,
+                            size: 20,
+                            color: theme.colorScheme.outline,
+                          ),
                           const SizedBox(width: 8),
                           Text(
                             '${article.count?.comments ?? 0}',
@@ -245,7 +272,9 @@ class _NewsDetailScreenState extends ConsumerState<NewsDetailScreen> {
                         key: _commentsSectionKey,
                         child: Text(
                           'Коментарі',
-                          style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -255,7 +284,9 @@ class _NewsDetailScreenState extends ConsumerState<NewsDetailScreen> {
                           child: Center(
                             child: Text(
                               'Немає коментарів. Будьте першим!',
-                              style: TextStyle(color: theme.colorScheme.outline),
+                              style: TextStyle(
+                                color: theme.colorScheme.outline,
+                              ),
                             ),
                           ),
                         )
@@ -264,8 +295,10 @@ class _NewsDetailScreenState extends ConsumerState<NewsDetailScreen> {
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
                           itemCount: article.comments.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 16),
-                          itemBuilder: (context, index) => _buildCommentTile(article.comments[index], theme),
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: 16),
+                          itemBuilder: (context, index) =>
+                              _buildCommentTile(article.comments[index], theme),
                         ),
                     ],
                   ),
@@ -292,8 +325,10 @@ class _NewsDetailScreenState extends ConsumerState<NewsDetailScreen> {
     required Color activeColor,
   }) {
     final theme = Theme.of(context);
-    final displayColor = isActive ? activeColor : theme.colorScheme.onSurfaceVariant;
-    
+    final displayColor = isActive
+        ? activeColor
+        : theme.colorScheme.onSurfaceVariant;
+
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
@@ -333,7 +368,9 @@ class _NewsDetailScreenState extends ConsumerState<NewsDetailScreen> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+                  color: theme.colorScheme.surfaceContainerHighest.withValues(
+                    alpha: 0.4,
+                  ),
                   borderRadius: const BorderRadius.only(
                     topRight: Radius.circular(16),
                     bottomLeft: Radius.circular(16),
@@ -344,8 +381,11 @@ class _NewsDetailScreenState extends ConsumerState<NewsDetailScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '${comment.author?.firstName ?? 'Гість'} ${comment.author?.lastName ?? ''}'.trim(),
-                      style: theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+                      '${comment.author?.firstName ?? 'Гість'} ${comment.author?.lastName ?? ''}'
+                          .trim(),
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                     const SizedBox(height: 6),
                     Text(
@@ -359,10 +399,14 @@ class _NewsDetailScreenState extends ConsumerState<NewsDetailScreen> {
               Padding(
                 padding: const EdgeInsets.only(left: 4.0),
                 child: Text(
-                  comment.createdAt != null 
-                      ? AppDateFormats.dayMonthTime.format(comment.createdAt!.toLocal())
+                  comment.createdAt != null
+                      ? AppDateFormats.dayMonthTime.format(
+                          comment.createdAt!.toLocal(),
+                        )
                       : '',
-                  style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.outline,
+                  ),
                 ),
               ),
             ],
@@ -399,8 +443,12 @@ class _NewsDetailScreenState extends ConsumerState<NewsDetailScreen> {
                   decoration: InputDecoration(
                     hintText: 'Написати коментар...',
                     filled: true,
-                    fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    fillColor: theme.colorScheme.surfaceContainerHighest
+                        .withValues(alpha: 0.5),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(24),
                       borderSide: BorderSide.none,
@@ -419,9 +467,16 @@ class _NewsDetailScreenState extends ConsumerState<NewsDetailScreen> {
                       ? const SizedBox(
                           width: 20,
                           height: 20,
-                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2.5,
+                          ),
                         )
-                      : const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+                      : const Icon(
+                          Icons.send_rounded,
+                          color: Colors.white,
+                          size: 20,
+                        ),
                   onPressed: _isSubmitting ? null : _submitComment,
                 ),
               ),
