@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import '../../data/models/news_models.dart';
+import '../../../../core/utils/app_date_formats.dart';
 import 'tiptap_renderer.dart';
 import '../../../../core/presentation/widgets/auth_network_image.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -86,7 +86,7 @@ class NewsCard extends StatelessWidget {
                         const SizedBox.shrink(),
                       Text(
                         article.createdAt != null 
-                            ? DateFormat('dd MMM yyyy, HH:mm').format(article.createdAt!.toLocal())
+                            ? AppDateFormats.dayMonthYearTime.format(article.createdAt!.toLocal())
                             : 'Дата не вказана',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,

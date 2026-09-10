@@ -1,7 +1,7 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../../../core/security/jwt_utils.dart';
 import '../../../core/storage/secure_storage_provider.dart';
 import '../../../core/services/notification_service.dart';
 import '../data/repositories/auth_repository.dart';
@@ -11,18 +11,7 @@ final currentTokenProvider = StateProvider<String?>((ref) => null);
 final currentUserIdProvider = Provider<String?>((ref) {
   final token = ref.watch(currentTokenProvider);
   if (token == null || token.isEmpty) return null;
-  
-  try {
-    final parts = token.split('.');
-    if (parts.length != 3) return null;
-    
-    final payload = base64Url.normalize(parts[1]);
-    final decoded = json.decode(utf8.decode(base64Url.decode(payload)));
-    
-    return decoded['id'] ?? decoded['sub']; 
-  } catch (e) {
-    return null;
-  }
+  return JwtUtils.userId(token);
 });
 
 final authStateProvider = StateNotifierProvider<AuthNotifier, AsyncValue<bool>>((ref) {
@@ -54,7 +43,7 @@ class AuthNotifier extends StateNotifier<AsyncValue<bool>> {
     try {
       final notificationService = _ref.read(notificationServiceProvider);
       await notificationService.requestPermission();
-      
+
       final token = await notificationService.getToken();
       if (token != null) {
         await _repository.updateFcmToken(token);
@@ -67,13 +56,59 @@ class AuthNotifier extends StateNotifier<AsyncValue<bool>> {
     } catch (_) {}
   }
 
+  Future<void> _persistTokens(String accessToken, String refreshToken) async {
+    await _storage.write(key: 'jwt_token', value: accessToken);
+    await _storage.write(key: 'refresh_token', value: refreshToken);
+    _ref.read(currentTokenProvider.notifier).state = accessToken;
+  }
+
+  Future<void> _clearSessionKeys() async {
+    await _storage.delete(key: 'jwt_token');
+    await _storage.delete(key: 'refresh_token');
+    await _storage.delete(key: 'biometric_email');
+    await _storage.delete(key: 'biometric_password');
+  }
+
+  Future<bool> _refreshSession(String refreshToken) async {
+    try {
+      final tokens = await _repository.refresh(refreshToken);
+      await _persistTokens(tokens['accessToken']!, tokens['refreshToken']!);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<void> _checkToken() async {
-    final token = await _storage.read(key: 'jwt_token');
-    if (token != null && token.isNotEmpty) {
-      _ref.read(currentTokenProvider.notifier).state = token;
-      state = const AsyncValue.data(true);
-      _syncFcmToken();
-    } else {
+    try {
+      await _storage.delete(key: 'biometric_password');
+
+      final token = await _storage.read(key: 'jwt_token');
+      final refreshToken = await _storage.read(key: 'refresh_token');
+
+      if (token != null && token.isNotEmpty && !JwtUtils.isExpired(token)) {
+        _ref.read(currentTokenProvider.notifier).state = token;
+        state = const AsyncValue.data(true);
+        _syncFcmToken();
+        return;
+      }
+
+      if (refreshToken != null && refreshToken.isNotEmpty) {
+        final refreshed = await _refreshSession(refreshToken);
+        if (refreshed) {
+          state = const AsyncValue.data(true);
+          _syncFcmToken();
+          return;
+        }
+        await _clearSessionKeys();
+      } else if (token != null && token.isNotEmpty) {
+        await _clearSessionKeys();
+      }
+
+      _ref.read(currentTokenProvider.notifier).state = null;
+      state = const AsyncValue.data(false);
+    } catch (_) {
+      _ref.read(currentTokenProvider.notifier).state = null;
       state = const AsyncValue.data(false);
     }
   }
@@ -82,14 +117,8 @@ class AuthNotifier extends StateNotifier<AsyncValue<bool>> {
     state = const AsyncValue.loading();
     try {
       final tokens = await _repository.login(email, password);
-      await _storage.write(key: 'jwt_token', value: tokens['accessToken']);
-      await _storage.write(key: 'refresh_token', value: tokens['refreshToken']);
-      
-      // Зберігаємо облікові дані для біометричного входу
-      await _storage.write(key: 'biometric_email', value: email);
-      await _storage.write(key: 'biometric_password', value: password);
-
-      _ref.read(currentTokenProvider.notifier).state = tokens['accessToken'];
+      await _persistTokens(tokens['accessToken']!, tokens['refreshToken']!);
+      await _storage.delete(key: 'biometric_password');
       state = const AsyncValue.data(true);
       _syncFcmToken();
     } catch (e, st) {
@@ -103,11 +132,16 @@ class AuthNotifier extends StateNotifier<AsyncValue<bool>> {
       if (token != null) {
         await _repository.logout(token);
       }
-      await _storage.delete(key: 'jwt_token');
-      await _storage.delete(key: 'refresh_token');
+    } catch (_) {
+      // Ігноруємо мережеві помилки логауту
+    }
+    try {
+      await _clearSessionKeys();
     } catch (_) {
       // Ігноруємо системні краші стораджа
     }
+    _fcmTokenSub?.cancel();
+    _fcmTokenSub = null;
     _ref.read(currentTokenProvider.notifier).state = null;
     state = const AsyncValue.data(false);
   }

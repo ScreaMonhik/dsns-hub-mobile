@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -8,6 +9,7 @@ import '../../../../core/theme/theme_provider.dart';
 import '../../../../core/presentation/utils/app_snackbar.dart';
 import '../../../../core/providers/app_info_provider.dart';
 import '../../../../core/providers/cache_provider.dart';
+import '../../../../core/security/password_rules.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -224,7 +226,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Environment: Production',
+                        kReleaseMode ? 'Environment: Production' : 'Environment: Debug',
                         style: theme.textTheme.labelSmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
                         ),
@@ -320,6 +322,11 @@ class _ChangePasswordSheetState extends ConsumerState<_ChangePasswordSheet> {
 
     if (oldPassword.isEmpty || newPassword.isEmpty) {
       AppSnackBar.showError(context, 'Усі поля є обов\'язковими');
+      return;
+    }
+
+    if (!PasswordRules.isValid(newPassword)) {
+      AppSnackBar.showError(context, PasswordRules.message);
       return;
     }
 

@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../../../core/network/dio_provider.dart';
+import '../../../../core/utils/safe_file.dart';
 import '../models/document_models.dart';
 
 final documentRepositoryProvider = Provider<DocumentRepository>((ref) {
@@ -38,16 +39,18 @@ class DocumentRepository {
   Future<String> downloadDocumentToTemp(String fileUrl, String fileName) async {
     try {
       final tempDir = await getTemporaryDirectory();
-      final savePath = '${tempDir.path}/$fileName';
-      
-      // Перевіряємо чи файл вже завантажено, щоб не качати двічі
+      final savePath = resolveTempSavePath(tempDir, fileName);
+
       final file = File(savePath);
       if (await file.exists()) {
         return savePath;
       }
 
-      // Завантажуємо файл. Dio автоматично додасть Bearer токен через наші interceptors
-      await _dio.download(fileUrl, savePath);
+      await _dio.download(
+        fileUrl,
+        savePath,
+        options: Options(receiveTimeout: const Duration(minutes: 2)),
+      );
       return savePath;
     } catch (e) {
       throw Exception('Не вдалося завантажити документ: $e');

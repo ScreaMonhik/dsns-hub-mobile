@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import '../../../../core/utils/app_date_formats.dart';
 import '../../data/models/document_models.dart';
 
 class DocumentCard extends StatelessWidget {
@@ -19,7 +19,7 @@ class DocumentCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final dateText = document.createdAt != null 
-        ? DateFormat('dd.MM.yyyy').format(document.createdAt!.toLocal())
+        ? AppDateFormats.dottedDate.format(document.createdAt!.toLocal())
         : 'Дата не вказана';
 
     return Container(

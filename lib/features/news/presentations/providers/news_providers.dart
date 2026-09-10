@@ -9,10 +9,9 @@ final newsDetailProvider = FutureProvider.family<NewsArticle, String>((ref, id) 
   return repository.getNewsById(id);
 });
 
-// Провайдер для списку категорій
-final Provider<Future<List<NewsCategory>>> newsCategoriesProvider = Provider((ref) {
+final newsCategoriesProvider = FutureProvider<List<NewsCategory>>((ref) async {
   final token = ref.watch(currentTokenProvider);
-  if (token == null || token.isEmpty) return Future.value([]);
+  if (token == null || token.isEmpty) return [];
   return ref.watch(newsRepositoryProvider).getCategories();
 });
 
@@ -79,6 +78,17 @@ class NewsListNotifier extends AsyncNotifier<List<NewsArticle>> {
       _isFetching = false;
     }
   }
+
+  Future<void> refreshItem(String newsId) async {
+    try {
+      final updated = await ref.read(newsRepositoryProvider).getNewsById(newsId);
+      final current = state.value;
+      if (current == null) return;
+      state = AsyncValue.data([
+        for (final item in current) item.id == newsId ? updated : item,
+      ]);
+    } catch (_) {}
+  }
 }
 
 // Провайдер для взаємодії з новинами (лайки, дизлайки, додавання коментарів)
@@ -94,7 +104,7 @@ class NewsInteractionController {
   Future<void> vote(String newsId, String voteType) async {
     try {
       await _ref.read(newsRepositoryProvider).vote(newsId, voteType);
-      _ref.invalidate(newsListProvider);
+      await _ref.read(newsListProvider.notifier).refreshItem(newsId);
       _ref.invalidate(newsDetailProvider(newsId));
     } catch (e) {
       throw Exception(e.toString().replaceAll('Exception: ', ''));
@@ -104,7 +114,7 @@ class NewsInteractionController {
   Future<void> addComment(String newsId, String content) async {
     try {
       await _ref.read(newsRepositoryProvider).addComment(newsId, content);
-      _ref.invalidate(newsListProvider);
+      await _ref.read(newsListProvider.notifier).refreshItem(newsId);
       _ref.invalidate(newsDetailProvider(newsId));
     } catch (e) {
       throw Exception('Не вдалося додати коментар: $e');

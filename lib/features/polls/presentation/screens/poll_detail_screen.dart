@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
+import '../../../../core/utils/app_date_formats.dart';
 import '../providers/poll_provider.dart';
 import '../../data/models/poll_model.dart';
 
@@ -136,7 +136,7 @@ class _PollDetailScreenState extends ConsumerState<PollDetailScreen> {
                         Icon(Icons.timer_outlined, size: 16, color: Theme.of(context).colorScheme.onTertiaryContainer),
                         const SizedBox(width: 6),
                         Text(
-                          'До ${DateFormat('dd.MM.yyyy HH:mm').format(poll.expiresAt!.toLocal())}',
+                          'До ${AppDateFormats.dottedDateTime.format(poll.expiresAt!.toLocal())}',
                           style: TextStyle(
                             color: Theme.of(context).colorScheme.onTertiaryContainer,
                             fontWeight: FontWeight.w600,

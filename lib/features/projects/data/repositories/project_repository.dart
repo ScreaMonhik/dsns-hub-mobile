@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../../../core/network/dio_provider.dart';
+import '../../../../core/utils/safe_file.dart';
 import '../models/project_models.dart';
 
 final projectRepositoryProvider = Provider<ProjectRepository>((ref) {
@@ -60,14 +61,18 @@ class ProjectRepository {
   Future<String> downloadProjectPdf(String fileUrl, String fileName) async {
     try {
       final tempDir = await getTemporaryDirectory();
-      final savePath = '${tempDir.path}/$fileName';
-      
+      final savePath = resolveTempSavePath(tempDir, fileName);
+
       final file = File(savePath);
       if (await file.exists()) {
         return savePath;
       }
 
-      await _dio.download(fileUrl, savePath);
+      await _dio.download(
+        fileUrl,
+        savePath,
+        options: Options(receiveTimeout: const Duration(minutes: 2)),
+      );
       return savePath;
     } catch (e) {
       throw Exception('Не вдалося завантажити PDF: $e');

@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 import '../providers/chat_providers.dart';
+import '../../../../core/utils/app_date_formats.dart';
 import '../../data/models/chat_models.dart';
 import '../../../../core/presentation/widgets/auth_network_image.dart';
 import '../../../auth/providers/auth_provider.dart';
@@ -24,6 +24,12 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final messages = ref.read(chatMessagesProvider(widget.groupId)).valueOrNull;
+      if (messages != null) {
+        _markUnreadAsRead(messages);
+      }
+    });
   }
 
   @override
@@ -37,6 +43,22 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
   void _onScroll() {
     if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
       ref.read(chatMessagesProvider(widget.groupId).notifier).loadMore();
+    }
+  }
+
+  void _markUnreadAsRead(List<ChatMessage> messages) {
+    final currentUserId = ref.read(currentUserIdProvider);
+    if (currentUserId == null) return;
+
+    final unreadIds = messages
+        .where((msg) =>
+            msg.senderId != currentUserId &&
+            !msg.readReceipts.any((r) => r.userId == currentUserId))
+        .map((msg) => msg.id)
+        .toList();
+
+    if (unreadIds.isNotEmpty) {
+      ref.read(chatMessagesProvider(widget.groupId).notifier).markAsRead(unreadIds);
     }
   }
 
@@ -73,6 +95,10 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
   Widget build(BuildContext context) {
     final messagesState = ref.watch(chatMessagesProvider(widget.groupId));
     final currentUserId = ref.watch(currentUserIdProvider);
+
+    ref.listen<AsyncValue<List<ChatMessage>>>(chatMessagesProvider(widget.groupId), (previous, next) {
+      next.whenData(_markUnreadAsRead);
+    });
     final groupsState = ref.watch(chatsListProvider);
     final theme = Theme.of(context);
     
@@ -153,17 +179,6 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
 
                           final msg = messages[index];
                           final isMe = currentUserId != null && msg.senderId == currentUserId;
-                          
-                          // Mark as read if not me and no my receipt exists
-                          if (!isMe && currentUserId != null) {
-                            final isReadByMe = msg.readReceipts.any((r) => r.userId == currentUserId);
-                            if (!isReadByMe) {
-                              WidgetsBinding.instance.addPostFrameCallback((_) {
-                                ref.read(chatMessagesProvider(widget.groupId).notifier).markAsRead([msg.id]);
-                              });
-                            }
-                          }
-                          
                           final isReadByOthers = msg.readReceipts.any((r) => r.userId != msg.senderId);
                           
                           // Grouping logic for bubble styles and spacing
@@ -215,7 +230,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                                   ],
                                   Flexible(
                                     child: Container(
-                                      constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
+                                      constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * 0.75),
                                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                                       decoration: BoxDecoration(
                                         color: isMe ? theme.colorScheme.primary : theme.colorScheme.surfaceContainerHighest,
@@ -259,7 +274,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                                                   mainAxisSize: MainAxisSize.min,
                                                   children: [
                                                     Text(
-                                                      DateFormat('HH:mm').format(msg.createdAt.toLocal()),
+                                                      AppDateFormats.time.format(msg.createdAt.toLocal()),
                                                       style: TextStyle(
                                                         fontSize: 11,
                                                         color: isMe 

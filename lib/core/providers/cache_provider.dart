@@ -9,20 +9,23 @@ final cacheProvider = StateNotifierProvider<CacheNotifier, AsyncValue<String>>((
 class CacheNotifier extends StateNotifier<AsyncValue<String>> {
   CacheNotifier() : super(const AsyncValue.loading());
 
+  Future<int> _directorySize(Directory dir) async {
+    var totalSize = 0;
+    await for (final entity in dir.list(recursive: true, followLinks: false)) {
+      if (entity is File) {
+        try {
+          totalSize += await entity.length();
+        } catch (_) {}
+      }
+    }
+    return totalSize;
+  }
+
   Future<void> calculateCache() async {
     state = const AsyncValue.loading();
     try {
       final tempDir = await getTemporaryDirectory();
-      int totalSize = 0;
-      
-      if (tempDir.existsSync()) {
-        tempDir.listSync(recursive: true, followLinks: false).forEach((FileSystemEntity entity) {
-          if (entity is File) {
-            totalSize += entity.lengthSync();
-          }
-        });
-      }
-      
+      final totalSize = tempDir.existsSync() ? await _directorySize(tempDir) : 0;
       state = AsyncValue.data(_formatBytes(totalSize));
     } catch (e, st) {
       state = AsyncValue.error(e, st);
@@ -33,21 +36,15 @@ class CacheNotifier extends StateNotifier<AsyncValue<String>> {
     state = const AsyncValue.loading();
     try {
       final tempDir = await getTemporaryDirectory();
-      
+
       if (tempDir.existsSync()) {
-        tempDir.listSync(recursive: true, followLinks: false).forEach((FileSystemEntity entity) {
+        await for (final entity in tempDir.list(followLinks: false)) {
           try {
-            if (entity is File) {
-              entity.deleteSync();
-            } else if (entity is Directory) {
-              entity.deleteSync(recursive: true);
-            }
-          } catch (_) {
-            // Ignore files that are locked by the system or currently in use
-          }
-        });
+            await entity.delete(recursive: true);
+          } catch (_) {}
+        }
       }
-      
+
       await calculateCache();
     } catch (e, st) {
       state = AsyncValue.error(e, st);

@@ -14,22 +14,26 @@ class BiometricService {
         return Icons.fingerprint;
       }
     } catch (_) {}
-    return Icons.security; // Фолбек, якщо тип не розпізнано
+    return Icons.security;
   }
 
   static Future<bool> authenticate() async {
     try {
       final isSupported = await _auth.isDeviceSupported();
-      final canCheck = await _auth.canCheckBiometrics;
-
-      if (!isSupported || !canCheck) {
-        return true; // Дозволяємо вхід, якщо пристрій не підтримує біометрію, щоб уникнути блокування
+      if (!isSupported) {
+        return false;
       }
 
       return await _auth.authenticate(
         localizedReason: 'Підтвердіть особу для доступу до системи DSNS Hub',
+        options: const AuthenticationOptions(
+          stickyAuth: true,
+          biometricOnly: false,
+          useErrorDialogs: true,
+          sensitiveTransaction: true,
+        ),
       );
-    } catch (e) {
+    } catch (_) {
       return false;
     }
   }

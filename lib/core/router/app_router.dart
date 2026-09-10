@@ -131,7 +131,10 @@ final routerProvider = Provider<GoRouter>((ref) {
                   GoRoute(
                     path: 'view',
                     pageBuilder: (context, state) {
-                      final document = state.extra as DocumentModel;
+                      final document = state.extra;
+                      if (document is! DocumentModel) {
+                        return const NoTransitionPage(child: DocumentsScreen());
+                      }
                       return CustomTransitionPage(
                         key: state.pageKey,
                         child: DocumentPdfScreen(document: document),
@@ -179,7 +182,10 @@ final routerProvider = Provider<GoRouter>((ref) {
                       GoRoute(
                         path: 'pdf',
                         pageBuilder: (context, state) {
-                          final project = state.extra as ProjectModel;
+                          final project = state.extra;
+                          if (project is! ProjectModel) {
+                            return const NoTransitionPage(child: ProjectsScreen());
+                          }
                           return CustomTransitionPage(
                             key: state.pageKey,
                             child: ProjectPdfScreen(project: project),

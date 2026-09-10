@@ -1,22 +1,36 @@
 import 'dart:convert';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
+import '../../../../core/config/app_config.dart';
 import '../../../../core/presentation/widgets/auth_network_image.dart';
+import '../../../../core/utils/safe_url.dart';
 
 class TipTapHelper {
+  static final Map<String, String> _plainTextCache = <String, String>{};
+  static const int _maxCacheEntries = 80;
+
   /// Витягує чистий текст з JSON TipTap для прев'ю на картках
   static String extractPlainText(String payload) {
+    final cached = _plainTextCache[payload];
+    if (cached != null) return cached;
+
+    String result;
     try {
       final doc = jsonDecode(payload);
       if (doc is Map<String, dynamic> && doc['type'] == 'doc') {
-        return _extractText(doc['content'] as List?);
+        result = _extractText(doc['content'] as List?);
+      } else {
+        result = payload;
       }
-      return payload;
     } catch (e) {
-      // Якщо це не JSON (наприклад, звичайний текст), прибираємо HTML теги про всяк випадок
-      return payload.replaceAll(RegExp(r'<[^>]*>|&[^;]+;'), ' ');
+      result = payload.replaceAll(RegExp(r'<[^>]*>|&[^;]+;'), ' ');
     }
+
+    if (_plainTextCache.length >= _maxCacheEntries) {
+      _plainTextCache.remove(_plainTextCache.keys.first);
+    }
+    _plainTextCache[payload] = result;
+    return result;
   }
 
   static String _extractText(List? nodes) {
@@ -43,7 +57,7 @@ class TipTapRenderer extends StatelessWidget {
   const TipTapRenderer({
     super.key,
     required this.jsonContent,
-    this.baseUrl = 'http://10.0.2.2:3000', // Змініть на свій baseUrl
+    this.baseUrl = AppConfig.apiBaseUrl,
   });
 
   @override
@@ -155,7 +169,7 @@ class TipTapRenderer extends StatelessWidget {
         return Padding(
           padding: const EdgeInsets.symmetric(vertical: 12.0),
           child: InkWell(
-            onTap: () => launchUrl(Uri.parse(src), mode: LaunchMode.externalApplication),
+            onTap: () => launchSafeUrl(src),
             borderRadius: BorderRadius.circular(12),
             child: Container(
               padding: const EdgeInsets.all(20),
@@ -212,7 +226,7 @@ class TipTapRenderer extends StatelessWidget {
               final href = mark['attrs']?['href'];
               if (href != null) {
                 recognizer = TapGestureRecognizer()
-                  ..onTap = () => launchUrl(Uri.parse(href), mode: LaunchMode.externalApplication);
+                  ..onTap = () => launchSafeUrl(href.toString());
               }
             }
           }

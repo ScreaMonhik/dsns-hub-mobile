@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 import '../models/chat_models.dart';
 import '../../../auth/providers/auth_provider.dart';
+import '../../../../core/config/app_config.dart';
 
 final chatSocketServiceProvider = Provider<ChatSocketService>((ref) {
   final service = ChatSocketService(ref);
@@ -13,6 +14,7 @@ final chatSocketServiceProvider = Provider<ChatSocketService>((ref) {
 class ChatSocketService {
   final Ref _ref;
   IO.Socket? _socket;
+  String? _connectedToken;
 
   final _messageController = StreamController<ChatMessage>.broadcast();
   final _messageUpdatedController = StreamController<ChatMessage>.broadcast();
@@ -29,35 +31,49 @@ class ChatSocketService {
   ChatSocketService(this._ref);
 
   Future<void> connect() async {
-    if (_socket != null && _socket!.connected) return;
-
     final token = _ref.read(currentTokenProvider);
-    
+    if (token == null || token.isEmpty) {
+      disconnect();
+      return;
+    }
+
+    if (_socket != null && _socket!.connected && _connectedToken == token) {
+      return;
+    }
+
+    disconnect();
+    _connectedToken = token;
+
     _socket = IO.io(
-      'http://10.0.2.2:3000/chat',
+      '${AppConfig.apiBaseUrl}/chat',
       IO.OptionBuilder()
           .setTransports(['websocket'])
           .setAuth({'token': token})
           .disableAutoConnect()
+          .enableForceNew()
           .build(),
     );
 
     _socket!.connect();
 
     _socket!.on('newMessage', (data) {
-      if (data != null) _messageController.add(ChatMessage.fromJson(data));
+      final message = _parseMessage(data);
+      if (message != null) _messageController.add(message);
     });
 
     _socket!.on('messageUpdated', (data) {
-      if (data != null) _messageUpdatedController.add(ChatMessage.fromJson(data));
+      final message = _parseMessage(data);
+      if (message != null) _messageUpdatedController.add(message);
     });
 
     _socket!.on('messageDeleted', (data) {
-      if (data != null) _messageDeletedController.add(ChatMessage.fromJson(data));
+      final message = _parseMessage(data);
+      if (message != null) _messageDeletedController.add(message);
     });
 
     _socket!.on('messagesRead', (data) {
-      if (data != null) _messagesReadController.add(Map<String, dynamic>.from(data));
+      final payload = _asStringKeyMap(data);
+      if (payload != null) _messagesReadController.add(payload);
     });
 
     _socket!.on('exception', (data) {
@@ -72,7 +88,9 @@ class ChatSocketService {
   }
 
   void sendMessage(String groupId, String content) {
-    _socket?.emit('sendMessage', {'groupId': groupId, 'content': content});
+    final trimmed = content.trim();
+    if (trimmed.isEmpty) return;
+    _socket?.emit('sendMessage', {'groupId': groupId, 'content': trimmed});
   }
 
   void editMessage(String messageId, String newContent) {
@@ -88,9 +106,26 @@ class ChatSocketService {
     _socket?.emit('markAsRead', {'groupId': groupId, 'messageIds': messageIds});
   }
 
+  Map<String, dynamic>? _asStringKeyMap(dynamic data) {
+    if (data is Map<String, dynamic>) return data;
+    if (data is Map) return Map<String, dynamic>.from(data);
+    return null;
+  }
+
+  ChatMessage? _parseMessage(dynamic data) {
+    final json = _asStringKeyMap(data);
+    if (json == null) return null;
+    try {
+      return ChatMessage.fromJson(json);
+    } catch (_) {
+      return null;
+    }
+  }
+
   void disconnect() {
     _socket?.disconnect();
     _socket?.dispose();
     _socket = null;
+    _connectedToken = null;
   }
 }

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import '../../../../core/utils/app_date_formats.dart';
 import '../../data/models/project_models.dart';
 
 class ProjectCard extends StatelessWidget {
@@ -23,7 +23,7 @@ class ProjectCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final dateText = project.createdAt != null 
-        ? DateFormat('dd MMM yyyy').format(project.createdAt!.toLocal())
+        ? AppDateFormats.dayMonthYear.format(project.createdAt!.toLocal())
         : '';
 
     return Container(

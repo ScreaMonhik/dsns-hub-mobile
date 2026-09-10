@@ -8,7 +8,6 @@ import 'package:flutter/foundation.dart';
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
-  // Тут можна додати специфічну обробку повідомлень у фоні, якщо потрібно
 }
 
 final notificationServiceProvider = Provider<NotificationService>((ref) {
@@ -23,8 +22,8 @@ class NotificationService {
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
     const AndroidNotificationChannel channel = AndroidNotificationChannel(
-      'emergency_alerts', // positional channelId
-      'Emergency Alerts', // positional channelName
+      'emergency_alerts',
+      'Emergency Alerts',
       description: 'Критичні сповіщення та збори за тривогою.',
       importance: Importance.high,
     );
@@ -55,8 +54,8 @@ class NotificationService {
           body: notification.body,
           notificationDetails: NotificationDetails(
             android: AndroidNotificationDetails(
-              channel.id, // positional channelId
-              channel.name, // positional channelName
+              channel.id,
+              channel.name,
               channelDescription: channel.description,
               icon: '@mipmap/ic_launcher',
               importance: Importance.high,
@@ -87,9 +86,9 @@ class NotificationService {
 
   Future<String?> getToken() async {
     final token = await _messaging.getToken();
-    debugPrint('================ FCM TOKEN ================');
-    debugPrint(token);
-    debugPrint('===========================================');
+    if (kDebugMode) {
+      debugPrint('FCM token registered');
+    }
     return token;
   }
 

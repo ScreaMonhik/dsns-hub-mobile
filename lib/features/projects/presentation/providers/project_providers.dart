@@ -60,6 +60,17 @@ class ProjectsListNotifier extends AsyncNotifier<List<ProjectModel>> {
       _isFetching = false;
     }
   }
+
+  Future<void> refreshItem(String projectId) async {
+    try {
+      final updated = await ref.read(projectRepositoryProvider).getProjectById(projectId);
+      final current = state.value;
+      if (current == null) return;
+      state = AsyncValue.data([
+        for (final item in current) item.id == projectId ? updated : item,
+      ]);
+    } catch (_) {}
+  }
 }
 
 final projectsListProvider = AsyncNotifierProvider<ProjectsListNotifier, List<ProjectModel>>(
@@ -77,13 +88,13 @@ class ProjectInteractionController {
 
   Future<void> vote(String projectId, String voteType) async {
     await _ref.read(projectRepositoryProvider).vote(projectId, voteType);
-    _ref.invalidate(projectsListProvider);
+    await _ref.read(projectsListProvider.notifier).refreshItem(projectId);
     _ref.invalidate(projectDetailProvider(projectId));
   }
 
   Future<void> addComment(String projectId, String content) async {
     await _ref.read(projectRepositoryProvider).addComment(projectId, content);
-    _ref.invalidate(projectsListProvider);
+    await _ref.read(projectsListProvider.notifier).refreshItem(projectId);
     _ref.invalidate(projectDetailProvider(projectId));
   }
 }

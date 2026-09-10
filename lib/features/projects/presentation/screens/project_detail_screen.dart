@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 import '../providers/project_providers.dart';
+import '../../../../core/utils/app_date_formats.dart';
 import '../../data/models/project_models.dart';
 
 class ProjectDetailScreen extends ConsumerStatefulWidget {
@@ -229,7 +229,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
               Padding(
                 padding: const EdgeInsets.only(left: 4.0),
                 child: Text(
-                  comment.createdAt != null ? DateFormat('dd MMM HH:mm').format(comment.createdAt!.toLocal()) : '',
+                  comment.createdAt != null ? AppDateFormats.dayMonthTime.format(comment.createdAt!.toLocal()) : '',
                   style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline),
                 ),
               ),

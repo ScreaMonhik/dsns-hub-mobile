@@ -1,19 +1,30 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../features/auth/providers/auth_provider.dart';
+import '../config/app_config.dart';
 import '../storage/secure_storage_provider.dart';
+
+const _retriedExtraKey = 'dsns_retried';
 
 final Provider<Dio> dioProvider = Provider<Dio>((ref) {
   final dio = Dio(
     BaseOptions(
-      baseUrl: 'http://10.0.2.2:3000',
-      connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 10),
+      baseUrl: AppConfig.apiBaseUrl,
+      connectTimeout: const Duration(seconds: 15),
+      receiveTimeout: const Duration(seconds: 30),
+      sendTimeout: const Duration(seconds: 30),
     ),
   );
 
   // Окремий інстанс Dio для оновлення токена, щоб не викликати нескінченний цикл interceptors
-  final refreshDio = Dio(BaseOptions(baseUrl: 'http://10.0.2.2:3000'));
+  final refreshDio = Dio(
+    BaseOptions(
+      baseUrl: AppConfig.apiBaseUrl,
+      connectTimeout: const Duration(seconds: 15),
+      receiveTimeout: const Duration(seconds: 15),
+    ),
+  );
 
   dio.interceptors.add(
     QueuedInterceptorsWrapper(
@@ -25,7 +36,6 @@ final Provider<Dio> dioProvider = Provider<Dio>((ref) {
         return handler.next(options);
       },
       onError: (DioException e, handler) async {
-        // Глобальна обробка Rate Limits
         if (e.response?.statusCode == 429) {
           return handler.reject(
             DioException(
@@ -36,30 +46,43 @@ final Provider<Dio> dioProvider = Provider<Dio>((ref) {
           );
         }
 
-        // Обробка протухшого токена
-        if (e.response?.statusCode == 401 && e.requestOptions.path != '/auth/login' && e.requestOptions.path != '/auth/refresh') {
+        final path = e.requestOptions.path;
+        final alreadyRetried = e.requestOptions.extra[_retriedExtraKey] == true;
+        final isAuthPath = path == '/auth/login' || path == '/auth/refresh';
+
+        if (e.response?.statusCode == 401 && !isAuthPath && !alreadyRetried) {
           final storage = ref.read(secureStorageProvider);
           final refreshToken = await storage.read(key: 'refresh_token');
 
-          if (refreshToken != null) {
+          if (refreshToken != null && refreshToken.isNotEmpty) {
             try {
-              final refreshResponse = await refreshDio.post('/auth/refresh', data: {
-                'refreshToken': refreshToken,
-              });
+              final refreshResponse = await refreshDio.post(
+                '/auth/refresh',
+                data: {'refreshToken': refreshToken},
+              );
 
-              final newAccessToken = refreshResponse.data['accessToken'] as String;
-              final newRefreshToken = refreshResponse.data['refreshToken'] as String;
+              final data = refreshResponse.data;
+              if (data is! Map) {
+                throw StateError('Invalid refresh payload');
+              }
+              final newAccessToken = data['accessToken'];
+              final newRefreshToken = data['refreshToken'];
+              if (newAccessToken is! String ||
+                  newRefreshToken is! String ||
+                  newAccessToken.isEmpty ||
+                  newRefreshToken.isEmpty) {
+                throw StateError('Invalid refresh tokens');
+              }
 
               await storage.write(key: 'jwt_token', value: newAccessToken);
               await storage.write(key: 'refresh_token', value: newRefreshToken);
               ref.read(currentTokenProvider.notifier).state = newAccessToken;
 
-              // Повторюємо оригінальний запит
               e.requestOptions.headers['Authorization'] = 'Bearer $newAccessToken';
+              e.requestOptions.extra[_retriedExtraKey] = true;
               final retryResponse = await dio.fetch(e.requestOptions);
               return handler.resolve(retryResponse);
             } catch (_) {
-              // Якщо refresh теж повернув помилку (наприклад 401)
               ref.read(authStateProvider.notifier).logout();
               return handler.next(e);
             }
@@ -72,14 +95,18 @@ final Provider<Dio> dioProvider = Provider<Dio>((ref) {
     ),
   );
 
-  dio.interceptors.add(LogInterceptor(
-    request: true,
-    requestHeader: true,
-    requestBody: false, // Не логуємо тіло, щоб консоль не зависла від байтів картинки
-    responseHeader: false,
-    responseBody: true,
-    error: true,
-  ));
+  if (kDebugMode) {
+    dio.interceptors.add(
+      LogInterceptor(
+        request: true,
+        requestHeader: false,
+        requestBody: false,
+        responseHeader: false,
+        responseBody: false,
+        error: true,
+      ),
+    );
+  }
 
   return dio;
 });

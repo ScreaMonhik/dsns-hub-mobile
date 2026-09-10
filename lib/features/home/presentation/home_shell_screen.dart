@@ -78,7 +78,7 @@ class HomeShellScreen extends StatelessWidget {
 
     return Scaffold(
       extendBody: true,
-      body: navigationShell,
+      body: RepaintBoundary(child: navigationShell),
       bottomNavigationBar: SafeArea(
         bottom: false,
         child: Padding(
@@ -87,30 +87,32 @@ class HomeShellScreen extends StatelessWidget {
             right: 20, 
             bottom: MediaQuery.paddingOf(context).bottom + 16, 
           ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(32),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-              child: Container(
-                height: 64,
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceContainer.withValues(alpha: 0.8),
-                  borderRadius: BorderRadius.circular(32),
-                  border: Border.all(
-                    color: theme.colorScheme.outlineVariant,
-                    width: 0.5,
+          child: RepaintBoundary(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(32),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+                child: Container(
+                  height: 64,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceContainer.withValues(alpha: 0.8),
+                    borderRadius: BorderRadius.circular(32),
+                    border: Border.all(
+                      color: theme.colorScheme.outlineVariant,
+                      width: 0.5,
+                    ),
                   ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    buildNavItem(0, Icons.newspaper_outlined, Icons.newspaper, 'Новини'),
-                    buildNavItem(1, Icons.description_outlined, Icons.description, 'Документи'),
-                    buildNavItem(2, Icons.folder_outlined, Icons.folder, 'Проєкти'),
-                    buildNavItem(3, Icons.poll_outlined, Icons.poll, 'Опитування'),
-                    buildNavItem(4, Icons.chat_bubble_outline, Icons.chat_bubble, 'Чати'),
-                  ],
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      buildNavItem(0, Icons.newspaper_outlined, Icons.newspaper, 'Новини'),
+                      buildNavItem(1, Icons.description_outlined, Icons.description, 'Документи'),
+                      buildNavItem(2, Icons.folder_outlined, Icons.folder, 'Проєкти'),
+                      buildNavItem(3, Icons.poll_outlined, Icons.poll, 'Опитування'),
+                      buildNavItem(4, Icons.chat_bubble_outline, Icons.chat_bubble, 'Чати'),
+                    ],
+                  ),
                 ),
               ),
             ),

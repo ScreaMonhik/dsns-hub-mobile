@@ -8,14 +8,19 @@ final appLockProvider = StateNotifierProvider<AppLockNotifier, bool>((ref) {
 class AppLockNotifier extends StateNotifier<bool> {
   final Ref _ref;
   DateTime? _backgroundTime;
-  final _lockTimeout = const Duration(minutes: 2); // Автоблокування через 2 хвилини
+  final _lockTimeout = const Duration(minutes: 2);
 
   AppLockNotifier(this._ref) : super(false) {
     _initializeLock();
+    _ref.listen<String?>(currentTokenProvider, (previous, next) {
+      if (next == null || next.isEmpty) {
+        state = false;
+        _backgroundTime = null;
+      }
+    });
   }
 
   void _initializeLock() {
-    // Блокуємо додаток на старті, якщо користувач вже авторизований (холодний старт)
     Future.microtask(() {
       final token = _ref.read(currentTokenProvider);
       if (token != null && token.isNotEmpty) {
@@ -25,13 +30,15 @@ class AppLockNotifier extends StateNotifier<bool> {
   }
 
   void onPaused() {
-    _backgroundTime = DateTime.now();
+    if (_ref.read(currentTokenProvider)?.isNotEmpty == true) {
+      _backgroundTime = DateTime.now();
+    }
   }
 
   void onResumed() {
     if (_backgroundTime != null) {
       final diff = DateTime.now().difference(_backgroundTime!);
-      if (diff >= _lockTimeout) {
+      if (diff >= _lockTimeout && _ref.read(currentTokenProvider)?.isNotEmpty == true) {
         state = true;
       }
       _backgroundTime = null;

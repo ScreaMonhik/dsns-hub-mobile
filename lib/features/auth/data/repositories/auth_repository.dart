@@ -46,6 +46,29 @@ class AuthRepository {
     }
   }
 
+  Future<Map<String, String>> refresh(String refreshToken) async {
+    final response = await _dio.post(
+      '/auth/refresh',
+      data: {'refreshToken': refreshToken},
+    );
+    final data = response.data;
+    if (data is! Map) {
+      throw Exception('Не вдалося оновити сесію');
+    }
+    final accessToken = data['accessToken'];
+    final newRefreshToken = data['refreshToken'];
+    if (accessToken is! String ||
+        newRefreshToken is! String ||
+        accessToken.isEmpty ||
+        newRefreshToken.isEmpty) {
+      throw Exception('Не вдалося оновити сесію');
+    }
+    return {
+      'accessToken': accessToken,
+      'refreshToken': newRefreshToken,
+    };
+  }
+
   Future<void> logout(String accessToken) async {
     try {
       await _dio.post(

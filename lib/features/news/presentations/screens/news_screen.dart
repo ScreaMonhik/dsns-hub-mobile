@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../data/models/news_models.dart';
 import 'package:dsns_hub/core/presentation/widgets/filter_choice_chip.dart';
 import '../providers/news_providers.dart';
 import '../widgets/news_card.dart';
@@ -155,54 +154,49 @@ class _NewsScreenState extends ConsumerState<NewsScreen> {
   }
 
   Widget _buildCategoryFilter() {
-    return FutureBuilder<List<NewsCategory>>(
-      future: ref.watch(newsCategoriesProvider),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return const SizedBox.shrink();
-        }
+    final categories = ref.watch(newsCategoriesProvider).valueOrNull;
+    if (categories == null || categories.isEmpty) {
+      return const SizedBox.shrink();
+    }
 
-        final categories = snapshot.data!;
-        final selectedCategoryId = ref.watch(selectedCategoryProvider);
-        final theme = Theme.of(context);
+    final selectedCategoryId = ref.watch(selectedCategoryProvider);
+    final theme = Theme.of(context);
 
-        return Container(
-          width: double.infinity,
-          color: theme.colorScheme.surface,
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                FilterChoiceChip(
-                  label: 'Усі',
-                  isSelected: selectedCategoryId == null,
-                  onSelected: () {
-                    if (selectedCategoryId != null) {
-                      HapticFeedback.lightImpact();
-                      ref.read(selectedCategoryProvider.notifier).state = null;
-                    }
-                  },
-                ),
-                ...categories.map((category) {
-                  final isSelected = selectedCategoryId == category.id;
-                  return FilterChoiceChip(
-                    label: category.name ?? 'Без назви',
-                    isSelected: isSelected,
-                    onSelected: () {
-                      if (!isSelected) {
-                        HapticFeedback.lightImpact();
-                        ref.read(selectedCategoryProvider.notifier).state = category.id;
-                      }
-                    },
-                  );
-                }),
-              ],
+    return Container(
+      width: double.infinity,
+      color: theme.colorScheme.surface,
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Row(
+          children: [
+            FilterChoiceChip(
+              label: 'Усі',
+              isSelected: selectedCategoryId == null,
+              onSelected: () {
+                if (selectedCategoryId != null) {
+                  HapticFeedback.lightImpact();
+                  ref.read(selectedCategoryProvider.notifier).state = null;
+                }
+              },
             ),
-          ),
-        );
-      },
+            ...categories.map((category) {
+              final isSelected = selectedCategoryId == category.id;
+              return FilterChoiceChip(
+                label: category.name ?? 'Без назви',
+                isSelected: isSelected,
+                onSelected: () {
+                  if (!isSelected) {
+                    HapticFeedback.lightImpact();
+                    ref.read(selectedCategoryProvider.notifier).state = category.id;
+                  }
+                },
+              );
+            }),
+          ],
+        ),
+      ),
     );
   }
 

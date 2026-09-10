@@ -85,5 +85,12 @@
 	<string>Додаток потребує доступу до галереї для завантаження фото профілю</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Додаток потребує доступу до камери для створення фото профілю</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Підтвердіть особу для доступу до DSNS Hub</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
 </dict>
 </plist>

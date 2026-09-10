@@ -6,6 +6,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/department_provider.dart';
 import '../../data/repositories/department_repository.dart';
 import '../../data/models/department_model.dart';
+import '../../../../core/security/password_rules.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
@@ -20,6 +21,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  final _regionController = TextEditingController();
+  final _departmentController = TextEditingController();
   
   DepartmentPublic? _selectedRegion;
   DepartmentPublic? _selectedDepartment;
@@ -34,6 +37,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _regionController.dispose();
+    _departmentController.dispose();
     super.dispose();
   }
 
@@ -69,9 +74,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       return false;
     }
 
-    final passwordRegExp = RegExp(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$');
-    if (!passwordRegExp.hasMatch(password)) {
-      _showError('Пароль занадто простий. Мінімум 8 символів: 1 велика, 1 мала літера, 1 цифра та спецсимвол.');
+    if (!PasswordRules.isValid(password)) {
+      _showError(PasswordRules.message);
       return false;
     }
 
@@ -192,7 +196,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     if (selected != null) {
       setState(() {
         _selectedRegion = selected;
-        _selectedDepartment = null; // Скидаємо підрозділ, якщо змінили область
+        _selectedDepartment = null;
+        _regionController.text = selected.name;
+        _departmentController.clear();
       });
     }
   }
@@ -219,6 +225,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     if (selected != null) {
       setState(() {
         _selectedDepartment = selected;
+        _departmentController.text = selected.name;
       });
     }
   }
@@ -356,7 +363,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   TextFormField(
                     readOnly: true,
                     enabled: !isLoading,
-                    controller: TextEditingController(text: _selectedRegion?.name ?? ''),
+                    controller: _regionController,
                     onTap: _showRegionPicker,
                     decoration: InputDecoration(
                       labelText: 'Область',
@@ -373,7 +380,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     TextFormField(
                       readOnly: true,
                       enabled: !isLoading && _selectedRegion != null,
-                      controller: TextEditingController(text: _selectedDepartment?.name ?? ''),
+                      controller: _departmentController,
                       onTap: _showDepartmentPicker,
                       decoration: InputDecoration(
                         labelText: 'Підрозділ',

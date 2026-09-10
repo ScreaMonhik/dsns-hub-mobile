@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import '../../../../core/utils/app_date_formats.dart';
 import 'package:dsns_hub/core/presentation/widgets/filter_choice_chip.dart';
 import '../providers/poll_provider.dart';
 import '../../data/models/poll_model.dart';
@@ -281,7 +281,7 @@ class _PollCard extends StatelessWidget {
                                   Icon(Icons.timer_outlined, size: 14, color: theme.colorScheme.onTertiaryContainer),
                                   const SizedBox(width: 4),
                                   Text(
-                                    DateFormat('dd.MM HH:mm').format(poll.expiresAt!.toLocal()),
+                                    AppDateFormats.dayMonthHour.format(poll.expiresAt!.toLocal()),
                                     style: TextStyle(
                                       fontSize: 12,
                                       color: theme.colorScheme.onTertiaryContainer,
@@ -296,7 +296,7 @@ class _PollCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      DateFormat('dd MMM yyyy').format(poll.createdAt.toLocal()),
+                      AppDateFormats.dayMonthYear.format(poll.createdAt.toLocal()),
                       style: TextStyle(
                         color: theme.colorScheme.onSurfaceVariant,
                         fontSize: 13,

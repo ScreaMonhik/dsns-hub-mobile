@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
+import '../../../../core/utils/app_date_formats.dart';
 import '../providers/news_providers.dart';
 import '../widgets/tiptap_renderer.dart';
 import '../../data/models/news_models.dart';
@@ -144,7 +144,7 @@ class _NewsDetailScreenState extends ConsumerState<NewsDetailScreen> {
                             const SizedBox.shrink(),
                           Text(
                             article.createdAt != null 
-                                ? DateFormat('dd MMMM yyyy, HH:mm').format(article.createdAt!.toLocal())
+                                ? AppDateFormats.longDayMonthYearTime.format(article.createdAt!.toLocal())
                                 : 'Дата не вказана',
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: theme.colorScheme.onSurfaceVariant,
@@ -359,7 +359,7 @@ class _NewsDetailScreenState extends ConsumerState<NewsDetailScreen> {
                 padding: const EdgeInsets.only(left: 4.0),
                 child: Text(
                   comment.createdAt != null 
-                      ? DateFormat('dd MMM HH:mm').format(comment.createdAt!.toLocal())
+                      ? AppDateFormats.dayMonthTime.format(comment.createdAt!.toLocal())
                       : '',
                   style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline),
                 ),
