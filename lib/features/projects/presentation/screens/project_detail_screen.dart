@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../providers/project_providers.dart';
 import '../../../../core/utils/app_date_formats.dart';
+import '../../../../core/presentation/widgets/auth_user_avatar.dart';
+import '../../../../core/presentation/widgets/common_error_widget.dart';
+import '../providers/project_providers.dart';
 import '../../data/models/project_models.dart';
 
 class ProjectDetailScreen extends ConsumerStatefulWidget {
@@ -81,14 +83,10 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                       if (project.author != null)
                         Row(
                           children: [
-                            CircleAvatar(
+                            AuthUserAvatar(
+                              imageUrl: project.author!.avatarUrl,
+                              fallbackText: project.author!.firstName,
                               radius: 16,
-                              backgroundColor: theme.colorScheme.primaryContainer,
-                              backgroundImage: project.author!.avatarUrl != null ? NetworkImage(project.author!.avatarUrl!) : null,
-                              child: project.author!.avatarUrl == null
-                                  ? Text(project.author!.firstName?.isNotEmpty == true ? project.author!.firstName![0].toUpperCase() : '?',
-                                      style: TextStyle(color: theme.colorScheme.onPrimaryContainer, fontSize: 12))
-                                  : null,
                             ),
                             const SizedBox(width: 8),
                             Text(
@@ -160,7 +158,10 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(child: Text('Помилка: $error')),
+        error: (error, _) => CommonErrorWidget(
+          error: error.toString(),
+          onRetry: () => ref.invalidate(projectDetailProvider(widget.projectId)),
+        ),
       ),
     );
   }
@@ -195,14 +196,9 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        CircleAvatar(
-          radius: 18,
-          backgroundColor: theme.colorScheme.primaryContainer,
-          backgroundImage: comment.author?.avatarUrl != null ? NetworkImage(comment.author!.avatarUrl!) : null,
-          child: comment.author?.avatarUrl == null 
-            ? Text(comment.author?.firstName?.isNotEmpty == true ? comment.author!.firstName![0].toUpperCase() : '?',
-                style: TextStyle(color: theme.colorScheme.onPrimaryContainer, fontWeight: FontWeight.bold))
-            : null,
+        AuthUserAvatar(
+          imageUrl: comment.author?.avatarUrl,
+          fallbackText: comment.author?.firstName,
         ),
         const SizedBox(width: 12),
         Expanded(

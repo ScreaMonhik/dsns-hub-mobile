@@ -37,6 +37,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
   }
 
   void _onScroll() {
+    if (!_scrollController.hasClients) return;
     if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
       ref.read(projectsListProvider.notifier).loadMore();
     }

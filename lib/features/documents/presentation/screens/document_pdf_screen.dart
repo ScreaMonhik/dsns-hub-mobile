@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:printing/printing.dart';
+import '../../../../core/utils/share_helper.dart';
 import 'package:pdf/pdf.dart';
 import '../../data/models/document_models.dart';
 import '../../data/repositories/document_repository.dart';
@@ -158,7 +159,8 @@ class _DocumentPdfScreenState extends ConsumerState<DocumentPdfScreen> {
             IconButton(
               icon: const Icon(Icons.share_outlined),
               onPressed: () {
-                Share.shareXFiles(
+                shareFiles(
+                  context,
                   [XFile(_localPath!)],
                   text: widget.document.title ?? 'Документ',
                 );

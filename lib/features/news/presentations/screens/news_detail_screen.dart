@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:share_plus/share_plus.dart';
+import 'dart:async';
 import '../../../../core/utils/app_date_formats.dart';
+import '../../../../core/utils/share_helper.dart';
+import '../../../../core/presentation/widgets/auth_network_image.dart';
+import '../../../../core/presentation/widgets/auth_user_avatar.dart';
+import '../../../../core/presentation/widgets/common_error_widget.dart';
 import '../providers/news_providers.dart';
 import '../widgets/tiptap_renderer.dart';
 import '../../data/models/news_models.dart';
-import '../../../../core/presentation/widgets/auth_network_image.dart';
-import '../../../auth/providers/auth_provider.dart';
 
 class NewsDetailScreen extends ConsumerStatefulWidget {
   final String newsId;
@@ -30,9 +32,11 @@ class _NewsDetailScreenState extends ConsumerState<NewsDetailScreen> {
   
   bool _hasScrolled = false;
   bool _isSubmitting = false;
+  Timer? _scrollTimer;
 
   @override
   void dispose() {
+    _scrollTimer?.cancel();
     _commentController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -50,7 +54,8 @@ class _NewsDetailScreenState extends ConsumerState<NewsDetailScreen> {
       FocusScope.of(context).unfocus();
       
       // Скрол до кінця після додавання коментаря
-      Future.delayed(const Duration(milliseconds: 300), () {
+      _scrollTimer?.cancel();
+      _scrollTimer = Timer(const Duration(milliseconds: 300), () {
         if (_scrollController.hasClients) {
           _scrollController.animateTo(
             _scrollController.position.maxScrollExtent,
@@ -73,7 +78,6 @@ class _NewsDetailScreenState extends ConsumerState<NewsDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final newsState = ref.watch(newsDetailProvider(widget.newsId));
-    final currentUserId = ref.watch(currentUserIdProvider);
     final theme = Theme.of(context);
 
     return Scaffold(
@@ -85,8 +89,11 @@ class _NewsDetailScreenState extends ConsumerState<NewsDetailScreen> {
             icon: const Icon(Icons.share_outlined),
             onPressed: () {
               // Using custom scheme for now. Can be switched to https:// later.
-              final link = 'dsns://hub.dsns.gov.ua/news/${widget.newsId}';
-              Share.share(link, subject: 'Переглянути новину в DSNS Hub');
+              shareText(
+                context,
+                'dsns://hub.dsns.gov.ua/news/${widget.newsId}',
+                subject: 'Переглянути новину в DSNS Hub',
+              );
             },
           ),
         ],
@@ -98,8 +105,8 @@ class _NewsDetailScreenState extends ConsumerState<NewsDetailScreen> {
             _hasScrolled = true; // Set immediately to prevent repeated triggers
             
             WidgetsBinding.instance.addPostFrameCallback((_) {
-              // Add a delay to allow dynamic content (TipTap, Images) to fully render and calculate exact layout height
-              Future.delayed(const Duration(milliseconds: 600), () {
+              _scrollTimer?.cancel();
+              _scrollTimer = Timer(const Duration(milliseconds: 600), () {
                 if (_commentsSectionKey.currentContext != null && mounted) {
                   Scrollable.ensureVisible(
                     _commentsSectionKey.currentContext!,
@@ -269,7 +276,10 @@ class _NewsDetailScreenState extends ConsumerState<NewsDetailScreen> {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) => Center(child: Text('Помилка: $error')),
+        error: (error, stack) => CommonErrorWidget(
+          error: error.toString(),
+          onRetry: () => ref.invalidate(newsDetailProvider(widget.newsId)),
+        ),
       ),
     );
   }
@@ -311,18 +321,9 @@ class _NewsDetailScreenState extends ConsumerState<NewsDetailScreen> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        CircleAvatar(
-          radius: 18,
-          backgroundColor: theme.colorScheme.primaryContainer,
-          backgroundImage: comment.author?.avatarUrl != null 
-            ? NetworkImage(comment.author!.avatarUrl!) 
-            : null,
-          child: comment.author?.avatarUrl == null 
-            ? Text(
-                comment.author?.firstName?.isNotEmpty == true ? comment.author!.firstName![0].toUpperCase() : '?',
-                style: TextStyle(color: theme.colorScheme.onPrimaryContainer, fontWeight: FontWeight.bold),
-              )
-            : null,
+        AuthUserAvatar(
+          imageUrl: comment.author?.avatarUrl,
+          fallbackText: comment.author?.firstName,
         ),
         const SizedBox(width: 12),
         Expanded(

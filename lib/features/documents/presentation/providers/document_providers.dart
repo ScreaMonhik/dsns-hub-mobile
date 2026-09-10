@@ -51,8 +51,8 @@ class DocumentsListNotifier extends AsyncNotifier<List<DocumentModel>> {
       final currentDocs = state.value ?? [];
       
       state = AsyncValue.data([...currentDocs, ...newDocs]);
-    } catch (e, st) {
-      state = AsyncValue.error(e, st);
+    } catch (_) {
+      _currentPage--;
     } finally {
       _isFetching = false;
     }

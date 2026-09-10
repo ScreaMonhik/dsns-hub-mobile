@@ -205,8 +205,8 @@ class ChatMessagesNotifier extends FamilyAsyncNotifier<List<ChatMessage>, String
       
       final currentMessages = state.value ?? [];
       state = AsyncValue.data([...currentMessages, ...response.data.reversed.toList()]);
-    } catch (e, st) {
-      state = AsyncValue.error(e, st);
+    } catch (_) {
+      _currentPage--;
     } finally {
       _isFetching = false;
     }

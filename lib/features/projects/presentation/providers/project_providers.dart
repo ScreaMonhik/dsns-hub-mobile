@@ -54,8 +54,8 @@ class ProjectsListNotifier extends AsyncNotifier<List<ProjectModel>> {
       final newProjects = await _fetchPage(_currentPage, search: searchQuery);
       final currentProjects = state.value ?? [];
       state = AsyncValue.data([...currentProjects, ...newProjects]);
-    } catch (e, st) {
-      state = AsyncValue.error(e, st);
+    } catch (_) {
+      _currentPage--;
     } finally {
       _isFetching = false;
     }

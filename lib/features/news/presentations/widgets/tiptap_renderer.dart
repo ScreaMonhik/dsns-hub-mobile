@@ -50,7 +50,7 @@ class TipTapHelper {
   }
 }
 
-class TipTapRenderer extends StatelessWidget {
+class TipTapRenderer extends StatefulWidget {
   final String jsonContent;
   final String baseUrl;
 
@@ -61,18 +61,38 @@ class TipTapRenderer extends StatelessWidget {
   });
 
   @override
+  State<TipTapRenderer> createState() => _TipTapRendererState();
+}
+
+class _TipTapRendererState extends State<TipTapRenderer> {
+  final List<TapGestureRecognizer> _recognizers = [];
+
+  @override
+  void dispose() {
+    _disposeRecognizers();
+    super.dispose();
+  }
+
+  void _disposeRecognizers() {
+    for (final recognizer in _recognizers) {
+      recognizer.dispose();
+    }
+    _recognizers.clear();
+  }
+
+  @override
   Widget build(BuildContext context) {
     try {
-      final doc = jsonDecode(jsonContent);
+      final doc = jsonDecode(widget.jsonContent);
       if (doc is! Map<String, dynamic> || doc['type'] != 'doc') {
-        return Text(jsonContent); // Fallback
+        return Text(widget.jsonContent);
       }
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: _buildNodes(doc['content'] as List?, context),
       );
     } catch (e) {
-      return Text(jsonContent); // Fallback якщо формат некоректний
+      return Text(widget.jsonContent);
     }
   }
 
@@ -156,7 +176,7 @@ class TipTapRenderer extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
             child: AuthNetworkImage(
               imageUrl: src,
-              baseUrl: baseUrl,
+              baseUrl: widget.baseUrl,
               fit: BoxFit.cover,
               errorBuilder: (_, __, ___) => const SizedBox.shrink(),
             ),
@@ -227,6 +247,7 @@ class TipTapRenderer extends StatelessWidget {
               if (href != null) {
                 recognizer = TapGestureRecognizer()
                   ..onTap = () => launchSafeUrl(href.toString());
+                _recognizers.add(recognizer);
               }
             }
           }

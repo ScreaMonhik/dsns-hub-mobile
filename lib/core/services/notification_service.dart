@@ -17,8 +17,12 @@ final notificationServiceProvider = Provider<NotificationService>((ref) {
 class NotificationService {
   final FirebaseMessaging _messaging = FirebaseMessaging.instance;
   final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
+  bool _initialized = false;
 
   Future<void> initialize() async {
+    if (_initialized) return;
+    _initialized = true;
+
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
     const AndroidNotificationChannel channel = AndroidNotificationChannel(
@@ -47,7 +51,7 @@ class NotificationService {
       final RemoteNotification? notification = message.notification;
       final AndroidNotification? android = message.notification?.android;
 
-      if (notification != null && android != null) {
+      if (notification != null && (android != null || defaultTargetPlatform == TargetPlatform.iOS)) {
         _localNotifications.show(
           id: notification.hashCode,
           title: notification.title,

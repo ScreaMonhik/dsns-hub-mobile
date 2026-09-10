@@ -72,8 +72,8 @@ class NewsListNotifier extends AsyncNotifier<List<NewsArticle>> {
       final currentArticles = state.value ?? [];
       
       state = AsyncValue.data([...currentArticles, ...newArticles]);
-    } catch (e, st) {
-      state = AsyncValue.error(e, st);
+    } catch (_) {
+      _currentPage--;
     } finally {
       _isFetching = false;
     }

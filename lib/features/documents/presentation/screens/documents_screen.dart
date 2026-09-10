@@ -36,6 +36,7 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
   }
 
   void _onScroll() {
+    if (!_scrollController.hasClients) return;
     if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
       ref.read(documentsListProvider.notifier).loadMore();
     }

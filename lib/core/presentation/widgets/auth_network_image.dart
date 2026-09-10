@@ -54,8 +54,9 @@ class AuthNetworkImage extends ConsumerWidget {
     }
 
     final dpr = MediaQuery.devicePixelRatioOf(context);
-    final logicalWidth = width ?? MediaQuery.sizeOf(context).width;
-    final cacheWidth = (logicalWidth * dpr).round();
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final logicalWidth = (width != null && width!.isFinite && width! > 0) ? width! : screenWidth;
+    final cacheWidth = (logicalWidth * dpr).round().clamp(1, 4096);
 
     return Image.network(
       resolvedUrl,
@@ -63,7 +64,7 @@ class AuthNetworkImage extends ConsumerWidget {
       height: height,
       fit: fit,
       headers: headers,
-      cacheWidth: cacheWidth > 0 ? cacheWidth : null,
+      cacheWidth: cacheWidth,
       gaplessPlayback: true,
       filterQuality: FilterQuality.medium,
       errorBuilder: errorBuilder ??
