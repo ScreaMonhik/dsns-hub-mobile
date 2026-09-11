@@ -1,6 +1,7 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+
+import 'widgets/liquid_glass_home_tab_bar.dart';
 
 class HomeShellScreen extends StatelessWidget {
   final StatefulNavigationShell navigationShell;
@@ -23,8 +24,7 @@ class HomeShellScreen extends StatelessWidget {
 
     Widget buildNavItem(int index, IconData icon, IconData activeIcon, String label) {
       final isActive = navigationShell.currentIndex == index;
-      final activeColor = isActive ? theme.colorScheme.primary : theme.colorScheme.onSurface;
-      final inactiveColor = theme.colorScheme.onSurfaceVariant;
+      final activeColor = theme.colorScheme.primary;
 
       return GestureDetector(
         onTap: () => _goBranch(index),
@@ -37,8 +37,8 @@ class HomeShellScreen extends StatelessWidget {
             vertical: 10,
           ),
           decoration: BoxDecoration(
-            color: isActive 
-                ? theme.colorScheme.primary.withValues(alpha: 0.15)
+            color: isActive
+                ? theme.colorScheme.primary.withValues(alpha: 0.14)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(24),
           ),
@@ -47,7 +47,7 @@ class HomeShellScreen extends StatelessWidget {
             children: [
               Icon(
                 isActive ? activeIcon : icon,
-                color: isActive ? activeColor : inactiveColor,
+                color: isActive ? activeColor : null,
                 size: 26,
               ),
               ClipRect(
@@ -77,47 +77,26 @@ class HomeShellScreen extends StatelessWidget {
     }
 
     return Scaffold(
-      extendBody: true,
-      body: RepaintBoundary(child: navigationShell),
-      bottomNavigationBar: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: EdgeInsets.only(
-            left: 20, 
-            right: 20, 
-            bottom: MediaQuery.paddingOf(context).bottom + 16, 
-          ),
-          child: RepaintBoundary(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(32),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-                child: Container(
-                  height: 64,
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceContainer.withValues(alpha: 0.8),
-                    borderRadius: BorderRadius.circular(32),
-                    border: Border.all(
-                      color: theme.colorScheme.outlineVariant,
-                      width: 0.5,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      buildNavItem(0, Icons.newspaper_outlined, Icons.newspaper, 'Новини'),
-                      buildNavItem(1, Icons.description_outlined, Icons.description, 'Документи'),
-                      buildNavItem(2, Icons.folder_outlined, Icons.folder, 'Проєкти'),
-                      buildNavItem(3, Icons.poll_outlined, Icons.poll, 'Опитування'),
-                      buildNavItem(4, Icons.chat_bubble_outline, Icons.chat_bubble, 'Чати'),
-                    ],
-                  ),
-                ),
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          RepaintBoundary(child: navigationShell),
+          LiquidGlassHomeTabBar(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  buildNavItem(0, Icons.newspaper_outlined, Icons.newspaper, 'Новини'),
+                  buildNavItem(1, Icons.description_outlined, Icons.description, 'Документи'),
+                  buildNavItem(2, Icons.folder_outlined, Icons.folder, 'Проєкти'),
+                  buildNavItem(3, Icons.poll_outlined, Icons.poll, 'Опитування'),
+                  buildNavItem(4, Icons.chat_bubble_outline, Icons.chat_bubble, 'Чати'),
+                ],
               ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }

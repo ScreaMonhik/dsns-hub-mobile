@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 import 'package:firebase_core/firebase_core.dart';
+import 'package:liquid_glass_easy/liquid_glass_easy.dart';
 import 'core/services/notification_service.dart';
 import 'core/router/app_router.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -21,10 +22,11 @@ import 'core/presentation/widgets/app_lock_overlay.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  await Firebase.initializeApp();
-  
-  // Initialize Ukrainian locale data for DateFormat
-  await initializeDateFormatting('uk', null);
+  await Future.wait([
+    Firebase.initializeApp(),
+    LiquidGlassShaders.ensureLoaded(),
+    initializeDateFormatting('uk', null),
+  ]);
   Intl.defaultLocale = 'uk';
   
   runApp(const ProviderScope(child: DsnsHubApp()));
