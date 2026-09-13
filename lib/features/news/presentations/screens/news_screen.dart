@@ -3,13 +3,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'package:dsns_hub/core/presentation/widgets/filter_choice_chip.dart';
+import '../../../../core/config/feature_flags.dart';
+import '../../../../core/presentation/widgets/common_error_widget.dart';
+import '../../../../core/presentation/widgets/feature_disabled_view.dart';
+import '../../../../core/presentation/widgets/shimmer_loading_list.dart';
+import '../../../auth/providers/auth_provider.dart';
+import '../../../profile/presentation/widgets/user_profile_button.dart';
+import '../../data/models/news_models.dart';
+import '../../data/repositories/news-repository.dart';
 import '../providers/news_providers.dart';
 import '../widgets/news_card.dart';
-import '../../../profile/presentation/widgets/user_profile_button.dart';
-import '../../../auth/providers/auth_provider.dart';
-import '../../../../core/presentation/widgets/shimmer_loading_list.dart';
-import '../../../../core/presentation/widgets/common_error_widget.dart';
 
 class NewsScreen extends ConsumerStatefulWidget {
   const NewsScreen({super.key});
@@ -19,48 +24,62 @@ class NewsScreen extends ConsumerStatefulWidget {
 }
 
 class _NewsScreenState extends ConsumerState<NewsScreen> {
-  final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
   Timer? _debounce;
+  late final PagingController<int, NewsArticle> _pagingController;
 
   @override
   void initState() {
     super.initState();
-    _scrollController.addListener(_onScroll);
+    _pagingController = PagingController<int, NewsArticle>(
+      getNextPageKey: (state) {
+        if (state.lastPageIsEmpty) return null;
+        final lastItems = state.pages?.last;
+        if (lastItems != null && lastItems.length < 10) return null;
+        return state.nextIntPageKey;
+      },
+      fetchPage: (pageKey) async {
+        final response = await ref.read(newsRepositoryProvider).getNews(
+              page: pageKey,
+              limit: 10,
+              categoryId: ref.read(selectedCategoryProvider),
+              search: ref.read(newsSearchQueryProvider),
+            );
+        return response.data;
+      },
+    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(newsPagingControllerProvider.notifier).state = _pagingController;
+    });
   }
 
   @override
   void dispose() {
-    _scrollController.removeListener(_onScroll);
-    _scrollController.dispose();
+    if (ref.read(newsPagingControllerProvider) == _pagingController) {
+      ref.read(newsPagingControllerProvider.notifier).state = null;
+    }
     _searchController.dispose();
     _debounce?.cancel();
+    _pagingController.dispose();
     super.dispose();
-  }
-
-  void _onScroll() {
-    if (!_scrollController.hasClients) return;
-    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
-      ref.read(newsListProvider.notifier).loadMore();
-    }
   }
 
   void _onSearchChanged(String query) {
     if (_debounce?.isActive ?? false) _debounce!.cancel();
     _debounce = Timer(const Duration(milliseconds: 500), () {
       ref.read(newsSearchQueryProvider.notifier).state = query.trim();
+      _pagingController.refresh();
     });
-  }
-
-  Future<void> _onRefresh() async {
-    ref.invalidate(newsListProvider);
   }
 
   @override
   Widget build(BuildContext context) {
-    final newsState = ref.watch(newsListProvider);
+    if (!ref.watch(featureFlagsProvider).newsEnabled) {
+      return const FeatureDisabledView(title: 'Новини');
+    }
+
+    ref.listen(selectedCategoryProvider, (_, __) => _pagingController.refresh());
     final currentUserId = ref.watch(currentUserIdProvider);
-    final theme = Theme.of(context);
 
     return Scaffold(
       appBar: AppBar(
@@ -78,7 +97,7 @@ class _NewsScreenState extends ConsumerState<NewsScreen> {
                 hintText: 'Пошук новин...',
                 prefixIcon: const Icon(Icons.search),
                 filled: true,
-                fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                fillColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(16),
                   borderSide: BorderSide.none,
@@ -89,63 +108,58 @@ class _NewsScreenState extends ConsumerState<NewsScreen> {
           ),
           _buildCategoryFilter(),
           Expanded(
-            child: newsState.when(
-              data: (articles) {
-                if (articles.isEmpty) {
-                  return _buildEmptyState();
-                }
-
-                return RefreshIndicator(
-                  onRefresh: _onRefresh,
-                  child: ListView.builder(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    controller: _scrollController,
-                    padding: EdgeInsets.fromLTRB(16, 12, 16, 100 + MediaQuery.paddingOf(context).bottom),
-                    itemCount: articles.length + 1, // +1 for loading indicator at the bottom
-                    itemBuilder: (context, index) {
-                      if (index == articles.length) {
-                        return _buildBottomLoader();
-                      }
-                      
-                      final article = articles[index];
-                      return NewsCard(
-                        index: index,
-                        article: article,
-                        currentUserId: currentUserId,
-                        onTap: () => context.push('/news/${article.id}'),
-                        onLike: () async {
-                          HapticFeedback.lightImpact();
-                          try {
-                            await ref.read(newsInteractionProvider).vote(article.id, 'UPVOTE');
-                          } catch (e) {
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: Colors.red));
-                            }
+            child: RefreshIndicator(
+              onRefresh: () async => _pagingController.refresh(),
+              child: PagingListener(
+                controller: _pagingController,
+                builder: (context, state, fetchNextPage) => PagedListView<int, NewsArticle>(
+                  state: state,
+                  fetchNextPage: fetchNextPage,
+                  padding: EdgeInsets.fromLTRB(16, 12, 16, 100 + MediaQuery.paddingOf(context).bottom),
+                  builderDelegate: PagedChildBuilderDelegate<NewsArticle>(
+                    firstPageProgressIndicatorBuilder: (_) => const ShimmerLoadingList(),
+                    firstPageErrorIndicatorBuilder: (_) => CommonErrorWidget(
+                      error: state.error?.toString() ?? 'Помилка завантаження',
+                      onRetry: _pagingController.refresh,
+                    ),
+                    noItemsFoundIndicatorBuilder: (_) => _buildEmptyState(),
+                    newPageErrorIndicatorBuilder: (_) => TextButton(
+                      onPressed: fetchNextPage,
+                      child: const Text('Повторити завантаження'),
+                    ),
+                    itemBuilder: (context, article, index) => NewsCard(
+                      index: index,
+                      article: article,
+                      currentUserId: currentUserId,
+                      onTap: () => context.push('/news/${article.id}'),
+                      onLike: () async {
+                        HapticFeedback.lightImpact();
+                        try {
+                          await ref.read(newsInteractionProvider).vote(article.id, 'UPVOTE');
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+                            );
                           }
-                        },
-                        onDislike: () async {
-                          HapticFeedback.lightImpact();
-                          try {
-                            await ref.read(newsInteractionProvider).vote(article.id, 'DOWNVOTE');
-                          } catch (e) {
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: Colors.red));
-                            }
+                        }
+                      },
+                      onDislike: () async {
+                        HapticFeedback.lightImpact();
+                        try {
+                          await ref.read(newsInteractionProvider).vote(article.id, 'DOWNVOTE');
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+                            );
                           }
-                        },
-                        onCommentTap: () {
-                          // Переходимо до новини і одразу скролимо до коментарів
-                          context.push('/news/${article.id}?comments=true');
-                        },
-                      );
-                    },
+                        }
+                      },
+                      onCommentTap: () => context.push('/news/${article.id}?comments=true'),
+                    ),
                   ),
-                );
-              },
-              loading: () => const ShimmerLoadingList(),
-              error: (error, stack) => CommonErrorWidget(
-                error: error.toString(),
-                onRetry: _onRefresh,
+                ),
               ),
             ),
           ),
@@ -201,22 +215,6 @@ class _NewsScreenState extends ConsumerState<NewsScreen> {
     );
   }
 
-  Widget _buildBottomLoader() {
-    final hasMore = ref.read(newsListProvider.notifier).hasMore;
-    if (!hasMore) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 24),
-        child: Center(
-          child: Text('Ви переглянули всі новини', style: TextStyle(color: Colors.grey)),
-        ),
-      );
-    }
-    return const Padding(
-      padding: EdgeInsets.symmetric(vertical: 24),
-      child: Center(child: CircularProgressIndicator()),
-    );
-  }
-
   Widget _buildEmptyState() {
     return Center(
       child: Column(
@@ -230,7 +228,7 @@ class _NewsScreenState extends ConsumerState<NewsScreen> {
           ),
           const SizedBox(height: 8),
           ElevatedButton(
-            onPressed: _onRefresh,
+            onPressed: _pagingController.refresh,
             child: const Text('Оновити'),
           ),
         ],

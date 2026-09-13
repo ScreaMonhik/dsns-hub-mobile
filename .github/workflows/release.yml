@@ -1,0 +1,43 @@
+name: Mobile release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Resolve dependencies
+        run: flutter pub get
+      - name: Generate sources
+        run: dart run build_runner build --delete-conflicting-outputs
+      - name: Analyze
+        run: flutter analyze --no-fatal-infos
+      - name: Test
+        run: flutter test
+      - name: Build obfuscated APK
+        run: >
+          flutter build apk --release
+          --obfuscate
+          --split-debug-info=build/app/outputs/symbols
+          --dart-define=API_BASE_URL=${{ secrets.API_BASE_URL }}
+          --dart-define=SSL_PIN_SHA256=${{ secrets.SSL_PIN_SHA256 }}
+          --dart-define=ANDROID_CERT_HASH=${{ secrets.ANDROID_CERT_HASH }}
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: dsns-hub-android
+          path: build/app/outputs/flutter-apk/app-release.apk
+      - name: Upload debug symbols
+        uses: actions/upload-artifact@v4
+        with:
+          name: dsns-hub-debug-info
+          path: build/app/outputs/symbols

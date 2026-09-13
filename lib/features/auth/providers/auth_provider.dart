@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../../core/security/biometric_service.dart';
+import '../../../core/security/device_integrity.dart';
 import '../../../core/security/jwt_utils.dart';
 import '../../../core/storage/secure_storage_provider.dart';
 import '../../../core/services/notification_service.dart';
@@ -82,6 +83,13 @@ class AuthNotifier extends StateNotifier<AsyncValue<bool>> {
 
   Future<void> _checkToken() async {
     try {
+      if (DeviceIntegrity.instance.isCompromised) {
+        await DeviceIntegrity.instance.wipeTokens();
+        _ref.read(currentTokenProvider.notifier).state = null;
+        state = const AsyncValue.data(false);
+        return;
+      }
+
       await _storage.delete(key: 'biometric_password');
 
       final token = await _storage.read(key: 'jwt_token');
@@ -107,6 +115,13 @@ class AuthNotifier extends StateNotifier<AsyncValue<bool>> {
   }
 
   Future<void> login(String email, String password) async {
+    if (DeviceIntegrity.instance.isCompromised) {
+      state = AsyncValue.error(
+        Exception('Пристрій скомпрометовано. Вхід заборонено.'),
+        StackTrace.current,
+      );
+      return;
+    }
     state = const AsyncValue.loading();
     try {
       final tokens = await _repository.login(email, password);
@@ -121,6 +136,9 @@ class AuthNotifier extends StateNotifier<AsyncValue<bool>> {
   }
 
   Future<void> loginWithBiometrics() async {
+    if (DeviceIntegrity.instance.isCompromised) {
+      throw Exception('Пристрій скомпрометовано. Вхід заборонено.');
+    }
     final refreshToken = await _storage.read(key: 'refresh_token');
     if (refreshToken == null || refreshToken.isEmpty) {
       throw Exception('Збереженої сесії немає. Увійдіть за паролем');

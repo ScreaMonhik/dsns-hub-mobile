@@ -8,6 +8,8 @@ import 'package:dsns_hub/core/presentation/widgets/filter_choice_chip.dart';
 import '../providers/poll_provider.dart';
 import '../../data/models/poll_model.dart';
 import '../../../profile/presentation/widgets/user_profile_button.dart';
+import '../../../../core/config/feature_flags.dart';
+import '../../../../core/presentation/widgets/feature_disabled_view.dart';
 import '../../../../core/presentation/widgets/shimmer_loading_list.dart';
 import '../../../../core/presentation/widgets/common_error_widget.dart';
 
@@ -35,6 +37,10 @@ class _PollsScreenState extends ConsumerState<PollsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (!ref.watch(featureFlagsProvider).pollsEnabled) {
+      return const FeatureDisabledView(title: 'Опитування');
+    }
+
     final pollsState = ref.watch(pollsProvider);
 
     return Scaffold(

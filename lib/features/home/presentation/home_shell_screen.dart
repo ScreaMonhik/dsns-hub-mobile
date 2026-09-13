@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/config/feature_flags.dart';
 import 'widgets/liquid_glass_home_tab_bar.dart';
 
-class HomeShellScreen extends StatelessWidget {
+class HomeShellScreen extends ConsumerWidget {
   final StatefulNavigationShell navigationShell;
 
   const HomeShellScreen({
@@ -19,8 +21,9 @@ class HomeShellScreen extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final flags = ref.watch(featureFlagsProvider);
 
     Widget buildNavItem(int index, IconData icon, IconData activeIcon, String label) {
       final isActive = navigationShell.currentIndex == index;
@@ -87,10 +90,12 @@ class HomeShellScreen extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  buildNavItem(0, Icons.newspaper_outlined, Icons.newspaper, 'Новини'),
+                  if (flags.newsEnabled)
+                    buildNavItem(0, Icons.newspaper_outlined, Icons.newspaper, 'Новини'),
                   buildNavItem(1, Icons.description_outlined, Icons.description, 'Документи'),
                   buildNavItem(2, Icons.folder_outlined, Icons.folder, 'Проєкти'),
-                  buildNavItem(3, Icons.poll_outlined, Icons.poll, 'Опитування'),
+                  if (flags.pollsEnabled)
+                    buildNavItem(3, Icons.poll_outlined, Icons.poll, 'Опитування'),
                   buildNavItem(4, Icons.chat_bubble_outline, Icons.chat_bubble, 'Чати'),
                 ],
               ),

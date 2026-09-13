@@ -4,7 +4,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter/foundation.dart';
+import '../logging/app_logger.dart';
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -60,6 +60,16 @@ class NotificationService {
         final id = data['pollId']?.toString();
         if (id == null || id.isEmpty) return null;
         return '/polls/$id';
+      case 'DOCUMENT':
+        return '/documents';
+      case 'PROJECT':
+        final id = data['projectId']?.toString();
+        if (id == null || id.isEmpty) return '/projects';
+        return '/projects/$id';
+      case 'CHAT':
+        final id = data['groupId']?.toString();
+        if (id == null || id.isEmpty) return '/chats';
+        return '/chats/$id';
       default:
         return null;
     }
@@ -171,9 +181,7 @@ class NotificationService {
 
   Future<String?> getToken() async {
     final token = await _messaging.getToken();
-    if (kDebugMode) {
-      debugPrint('FCM token registered');
-    }
+    appLogger.i('FCM token registered');
     return token;
   }
 

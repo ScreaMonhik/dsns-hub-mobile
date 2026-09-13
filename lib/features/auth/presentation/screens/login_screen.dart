@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/auth_provider.dart';
 import '../../../../core/presentation/utils/app_snackbar.dart';
+import '../../../../core/presentation/widgets/secure_password_field.dart';
 import '../../../../core/security/biometric_service.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -180,37 +181,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                     ),
                     const SizedBox(height: 20),
-                    TextField(
+                    SecurePasswordField(
                       controller: _passwordController,
                       enabled: !isLoading,
                       obscureText: !_isPasswordVisible,
-                      textInputAction: TextInputAction.done,
-                      autocorrect: false,
-                      enableSuggestions: false,
-                      autofillHints: const [AutofillHints.password],
+                      onToggleObscure: () {
+                        setState(() => _isPasswordVisible = !_isPasswordVisible);
+                      },
+                      label: 'Пароль',
                       onSubmitted: (_) => _submit(),
-                      decoration: InputDecoration(
-                        labelText: 'Пароль',
-                        prefixIcon: const Icon(Icons.lock_outline),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _isPasswordVisible
-                                ? Icons.visibility_off_outlined
-                                : Icons.visibility_outlined,
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              _isPasswordVisible = !_isPasswordVisible;
-                            });
-                          },
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          borderSide: BorderSide.none,
-                        ),
-                        filled: true,
-                        fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                      ),
                     ),
                     const SizedBox(height: 32),
                     if (showBiometricLogin) ...[

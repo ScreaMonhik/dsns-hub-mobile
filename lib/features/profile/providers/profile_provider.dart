@@ -10,7 +10,6 @@ final profileProvider = AsyncNotifierProvider<ProfileNotifier, UserProfile?>(() 
 class ProfileNotifier extends AsyncNotifier<UserProfile?> {
   @override
   Future<UserProfile?> build() async {
-    // Слухаємо токен: якщо логаут, обнуляємо профіль
     final token = ref.watch(currentTokenProvider);
     if (token == null || token.isEmpty) return null;
 
@@ -40,26 +39,24 @@ class ProfileNotifier extends AsyncNotifier<UserProfile?> {
     await ref.read(profileRepositoryProvider).changePassword(oldPassword, newPassword);
   }
 
-  Future<void> updateNotificationPrefs({
-    bool? notifyNews,
-    bool? notifyPolls,
-  }) async {
+  Future<void> updateNotificationPrefs(NotificationPreferences prefs) async {
     final current = state.value;
     if (current == null) return;
 
     final previous = state;
     state = AsyncValue.data(
       current.copyWith(
-        notifyNews: notifyNews ?? current.notifyNews,
-        notifyPolls: notifyPolls ?? current.notifyPolls,
+        notifyNews: prefs.notifyNews ?? current.notifyNews,
+        notifyPolls: prefs.notifyPolls ?? current.notifyPolls,
+        notifyPollDeadlines: prefs.notifyPollDeadlines ?? current.notifyPollDeadlines,
+        notifyDocuments: prefs.notifyDocuments ?? current.notifyDocuments,
+        notifyProjects: prefs.notifyProjects ?? current.notifyProjects,
+        notifyChats: prefs.notifyChats ?? current.notifyChats,
       ),
     );
 
     try {
-      final updated = await ref.read(profileRepositoryProvider).updatePreferences(
-        notifyNews: notifyNews,
-        notifyPolls: notifyPolls,
-      );
+      final updated = await ref.read(profileRepositoryProvider).updatePreferences(prefs);
       state = AsyncValue.data(updated);
     } catch (e, st) {
       state = previous.hasValue ? previous : AsyncValue.error(e, st);

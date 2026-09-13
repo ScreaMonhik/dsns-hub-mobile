@@ -3,11 +3,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
+
+import '../../../../core/offline/download_actions.dart';
+import '../../../../core/offline/download_manager.dart';
+import '../../../../core/presentation/widgets/common_error_widget.dart';
+import '../../../../core/presentation/widgets/search_with_downloads_bar.dart';
+import '../../../../core/presentation/widgets/shimmer_loading_list.dart';
+import '../../../profile/presentation/widgets/user_profile_button.dart';
+import '../../data/models/project_models.dart';
+import '../../data/repositories/project_repository.dart';
 import '../providers/project_providers.dart';
 import '../widgets/project_card.dart';
-import '../../../profile/presentation/widgets/user_profile_button.dart';
-import '../../../../core/presentation/widgets/shimmer_loading_list.dart';
-import '../../../../core/presentation/widgets/common_error_widget.dart';
 
 class ProjectsScreen extends ConsumerStatefulWidget {
   const ProjectsScreen({super.key});
@@ -17,41 +24,51 @@ class ProjectsScreen extends ConsumerStatefulWidget {
 }
 
 class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
-  final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
   Timer? _debounce;
+  late final PagingController<int, ProjectModel> _pagingController;
 
   @override
   void initState() {
     super.initState();
-    _scrollController.addListener(_onScroll);
+    _pagingController = PagingController<int, ProjectModel>(
+      getNextPageKey: (state) {
+        if (state.lastPageIsEmpty) return null;
+        final lastItems = state.pages?.last;
+        if (lastItems != null && lastItems.length < 10) return null;
+        return state.nextIntPageKey;
+      },
+      fetchPage: (pageKey) async {
+        final response = await ref.read(projectRepositoryProvider).getProjects(
+              page: pageKey,
+              limit: 10,
+              search: ref.read(projectSearchQueryProvider),
+            );
+        return response.data;
+      },
+    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(projectsPagingControllerProvider.notifier).state = _pagingController;
+    });
   }
 
   @override
   void dispose() {
-    _scrollController.removeListener(_onScroll);
-    _scrollController.dispose();
+    if (ref.read(projectsPagingControllerProvider) == _pagingController) {
+      ref.read(projectsPagingControllerProvider.notifier).state = null;
+    }
     _searchController.dispose();
     _debounce?.cancel();
+    _pagingController.dispose();
     super.dispose();
-  }
-
-  void _onScroll() {
-    if (!_scrollController.hasClients) return;
-    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
-      ref.read(projectsListProvider.notifier).loadMore();
-    }
   }
 
   void _onSearchChanged(String query) {
     if (_debounce?.isActive ?? false) _debounce!.cancel();
     _debounce = Timer(const Duration(milliseconds: 500), () {
       ref.read(projectSearchQueryProvider.notifier).state = query.trim();
+      _pagingController.refresh();
     });
-  }
-
-  Future<void> _onRefresh() async {
-    ref.invalidate(projectsListProvider);
   }
 
   void _handleVote(BuildContext context, String projectId, String type) async {
@@ -60,16 +77,15 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       await ref.read(projectInteractionProvider).vote(projectId, type);
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: Colors.red));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+        );
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final projectsState = ref.watch(projectsListProvider);
-    final theme = Theme.of(context);
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Проєкти'),
@@ -77,91 +93,53 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       ),
       body: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-            child: TextField(
-              controller: _searchController,
-              onChanged: _onSearchChanged,
-              decoration: InputDecoration(
-                hintText: 'Пошук проєктів...',
-                prefixIcon: const Icon(Icons.search),
-                filled: true,
-                fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: BorderSide.none,
-                ),
-                contentPadding: const EdgeInsets.symmetric(vertical: 0),
-              ),
-            ),
+          SearchWithDownloadsBar(
+            controller: _searchController,
+            hintText: 'Пошук проєктів...',
+            onChanged: _onSearchChanged,
+            downloadsTooltip: 'Завантажені проєкти',
+            onDownloadsTap: () => context.push('/projects/offline'),
           ),
           Expanded(
-            child: projectsState.when(
-              data: (projects) {
-                if (projects.isEmpty) {
-                  return RefreshIndicator(
-                    onRefresh: _onRefresh,
-                    child: LayoutBuilder(
-                      builder: (context, constraints) => SingleChildScrollView(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                          child: _buildEmptyState(),
-                        ),
-                      ),
+            child: RefreshIndicator(
+              onRefresh: () async => _pagingController.refresh(),
+              child: PagingListener(
+                controller: _pagingController,
+                builder: (context, state, fetchNextPage) => PagedListView<int, ProjectModel>(
+                  state: state,
+                  fetchNextPage: fetchNextPage,
+                  padding: EdgeInsets.fromLTRB(16, 8, 16, 100 + MediaQuery.paddingOf(context).bottom),
+                  builderDelegate: PagedChildBuilderDelegate<ProjectModel>(
+                    firstPageProgressIndicatorBuilder: (_) => const ShimmerLoadingList(),
+                    firstPageErrorIndicatorBuilder: (_) => CommonErrorWidget(
+                      error: state.error?.toString() ?? 'Помилка завантаження',
+                      onRetry: _pagingController.refresh,
                     ),
-                  );
-                }
-
-                return RefreshIndicator(
-                  onRefresh: _onRefresh,
-                  child: ListView.builder(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    controller: _scrollController,
-                    padding: EdgeInsets.fromLTRB(16, 8, 16, 100 + MediaQuery.paddingOf(context).bottom),
-                    itemCount: projects.length + 1,
-                    itemBuilder: (context, index) {
-                      if (index == projects.length) {
-                        return _buildBottomLoader();
-                      }
-                      
-                      final project = projects[index];
-                      return ProjectCard(
-                        index: index,
-                        project: project,
-                        onTap: () => context.push('/projects/${project.id}'),
-                        onLike: () => _handleVote(context, project.id, 'UPVOTE'),
-                        onDislike: () => _handleVote(context, project.id, 'DOWNVOTE'),
-                      );
-                    },
+                    noItemsFoundIndicatorBuilder: (_) => _buildEmptyState(),
+                    itemBuilder: (context, project, index) => ProjectCard(
+                      index: index,
+                      project: project,
+                      onTap: () => context.push('/projects/${project.id}'),
+                      onLike: () => _handleVote(context, project.id, 'UPVOTE'),
+                      onDislike: () => _handleVote(context, project.id, 'DOWNVOTE'),
+                      onLongPress: project.fileUrl == null
+                          ? null
+                          : () => showDownloadPopup(
+                                context: context,
+                                ref: ref,
+                                remoteId: project.id,
+                                kind: OfflineDownloadKind.project,
+                                title: project.title ?? 'Проєкт',
+                                remoteUrl: project.fileUrl,
+                              ),
+                    ),
                   ),
-                );
-              },
-              loading: () => const ShimmerLoadingList(),
-              error: (err, _) => CommonErrorWidget(
-                error: err.toString(),
-                onRetry: _onRefresh,
+                ),
               ),
             ),
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildBottomLoader() {
-    final hasMore = ref.read(projectsListProvider.notifier).hasMore;
-    if (!hasMore) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 24),
-        child: Center(
-          child: Text('Всі проєкти завантажено', style: TextStyle(color: Colors.grey)),
-        ),
-      );
-    }
-    return const Padding(
-      padding: EdgeInsets.symmetric(vertical: 24),
-      child: Center(child: CircularProgressIndicator()),
     );
   }
 

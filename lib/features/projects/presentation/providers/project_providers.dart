@@ -1,7 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
+
 import '../../data/models/project_models.dart';
 import '../../data/repositories/project_repository.dart';
-import '../../../auth/providers/auth_provider.dart';
 
 final projectSearchQueryProvider = StateProvider<String?>((ref) => null);
 
@@ -9,92 +10,35 @@ final projectDetailProvider = FutureProvider.family<ProjectModel, String>((ref, 
   return ref.watch(projectRepositoryProvider).getProjectById(id);
 });
 
-class ProjectsListNotifier extends AsyncNotifier<List<ProjectModel>> {
-  int _currentPage = 1;
-  bool _hasMore = true;
-  bool _isFetching = false;
-
-  bool get hasMore => _hasMore;
-
-  @override
-  Future<List<ProjectModel>> build() async {
-    final token = ref.watch(currentTokenProvider);
-    if (token == null || token.isEmpty) return [];
-
-    _currentPage = 1;
-    final searchQuery = ref.watch(projectSearchQueryProvider);
-    return _fetchPage(1, search: searchQuery);
-  }
-
-  Future<List<ProjectModel>> _fetchPage(int page, {String? search}) async {
-    final repository = ref.read(projectRepositoryProvider);
-    final response = await repository.getProjects(
-      page: page, 
-      limit: 10,
-      search: search,
-    );
-    
-    if (response.meta != null) {
-      _hasMore = response.meta!.page < response.meta!.lastPage;
-    } else {
-      _hasMore = response.data.length >= 10;
-    }
-    
-    return response.data;
-  }
-
-  Future<void> loadMore() async {
-    if (!_hasMore || _isFetching) return;
-
-    _isFetching = true;
-    _currentPage++;
-    final searchQuery = ref.read(projectSearchQueryProvider);
-    
-    try {
-      final newProjects = await _fetchPage(_currentPage, search: searchQuery);
-      final currentProjects = state.value ?? [];
-      state = AsyncValue.data([...currentProjects, ...newProjects]);
-    } catch (_) {
-      _currentPage--;
-    } finally {
-      _isFetching = false;
-    }
-  }
-
-  Future<void> refreshItem(String projectId) async {
-    try {
-      final updated = await ref.read(projectRepositoryProvider).getProjectById(projectId);
-      final current = state.value;
-      if (current == null) return;
-      state = AsyncValue.data([
-        for (final item in current) item.id == projectId ? updated : item,
-      ]);
-    } catch (_) {}
-  }
-}
-
-final projectsListProvider = AsyncNotifierProvider<ProjectsListNotifier, List<ProjectModel>>(
-  () => ProjectsListNotifier(),
-);
+final projectsPagingControllerProvider = StateProvider<PagingController<int, ProjectModel>?>((ref) => null);
 
 final projectInteractionProvider = Provider<ProjectInteractionController>((ref) {
   return ProjectInteractionController(ref);
 });
 
 class ProjectInteractionController {
-  final Ref _ref;
-
   ProjectInteractionController(this._ref);
+
+  final Ref _ref;
 
   Future<void> vote(String projectId, String voteType) async {
     await _ref.read(projectRepositoryProvider).vote(projectId, voteType);
-    await _ref.read(projectsListProvider.notifier).refreshItem(projectId);
+    await _refreshItem(projectId);
     _ref.invalidate(projectDetailProvider(projectId));
   }
 
   Future<void> addComment(String projectId, String content) async {
     await _ref.read(projectRepositoryProvider).addComment(projectId, content);
-    await _ref.read(projectsListProvider.notifier).refreshItem(projectId);
+    await _refreshItem(projectId);
     _ref.invalidate(projectDetailProvider(projectId));
+  }
+
+  Future<void> _refreshItem(String projectId) async {
+    try {
+      final updated = await _ref.read(projectRepositoryProvider).getProjectById(projectId);
+      _ref.read(projectsPagingControllerProvider)?.mapItems(
+            (item) => item.id == projectId ? updated : item,
+          );
+    } catch (_) {}
   }
 }

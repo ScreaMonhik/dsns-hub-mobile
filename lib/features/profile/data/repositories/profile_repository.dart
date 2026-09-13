@@ -9,6 +9,33 @@ final profileRepositoryProvider = Provider<ProfileRepository>((ref) {
   return ProfileRepository(ref.watch(dioProvider));
 });
 
+class NotificationPreferences {
+  const NotificationPreferences({
+    this.notifyNews,
+    this.notifyPolls,
+    this.notifyPollDeadlines,
+    this.notifyDocuments,
+    this.notifyProjects,
+    this.notifyChats,
+  });
+
+  final bool? notifyNews;
+  final bool? notifyPolls;
+  final bool? notifyPollDeadlines;
+  final bool? notifyDocuments;
+  final bool? notifyProjects;
+  final bool? notifyChats;
+
+  Map<String, bool> toJson() => {
+        if (notifyNews != null) 'notifyNews': notifyNews!,
+        if (notifyPolls != null) 'notifyPolls': notifyPolls!,
+        if (notifyPollDeadlines != null) 'notifyPollDeadlines': notifyPollDeadlines!,
+        if (notifyDocuments != null) 'notifyDocuments': notifyDocuments!,
+        if (notifyProjects != null) 'notifyProjects': notifyProjects!,
+        if (notifyChats != null) 'notifyChats': notifyChats!,
+      };
+}
+
 class ProfileRepository {
   final Dio _dio;
 
@@ -19,29 +46,21 @@ class ProfileRepository {
     return UserProfile.fromJson(response.data as Map<String, dynamic>);
   }
 
-  Future<UserProfile> updatePreferences({
-    bool? notifyNews,
-    bool? notifyPolls,
-  }) async {
+  Future<UserProfile> updatePreferences(NotificationPreferences prefs) async {
     final response = await _dio.patch(
       '/users/me',
-      data: {
-        'notifyNews': ?notifyNews,
-        'notifyPolls': ?notifyPolls,
-      },
+      data: prefs.toJson(),
     );
     return UserProfile.fromJson(response.data as Map<String, dynamic>);
   }
 
   Future<String> uploadAvatar(String filePath) async {
-    // 1. Примусово читаємо файл у пам'ять, щоб уникнути проблеми з 0-байт потоком
     final file = File(filePath);
     final bytes = await file.readAsBytes();
-    
+
     final fileName = filePath.split('/').last;
     final extension = fileName.split('.').last.toLowerCase();
-    
-    // 2. Встановлюємо правильний MIME-тип
+
     String subType = 'jpeg';
     if (extension == 'png') {
       subType = 'png';
@@ -51,7 +70,6 @@ class ProfileRepository {
       subType = 'jpeg';
     }
 
-    // 3. Створюємо FormData використовуючи байти
     final formData = FormData.fromMap({
       'file': MultipartFile.fromBytes(
         bytes,
@@ -61,10 +79,10 @@ class ProfileRepository {
     });
 
     final response = await _dio.patch(
-      '/users/me/avatar', 
+      '/users/me/avatar',
       data: formData,
     );
-    
+
     return response.data['avatarUrl'] as String;
   }
 

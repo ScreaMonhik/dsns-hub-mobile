@@ -2,11 +2,18 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
+
+import '../../../../core/offline/download_actions.dart';
+import '../../../../core/offline/download_manager.dart';
+import '../../../../core/presentation/widgets/common_error_widget.dart';
+import '../../../../core/presentation/widgets/search_with_downloads_bar.dart';
+import '../../../../core/presentation/widgets/shimmer_loading_list.dart';
+import '../../../profile/presentation/widgets/user_profile_button.dart';
+import '../../data/models/document_models.dart';
+import '../../data/repositories/document_repository.dart';
 import '../providers/document_providers.dart';
 import '../widgets/document_card.dart';
-import '../../../profile/presentation/widgets/user_profile_button.dart';
-import '../../../../core/presentation/widgets/shimmer_loading_list.dart';
-import '../../../../core/presentation/widgets/common_error_widget.dart';
 
 class DocumentsScreen extends ConsumerStatefulWidget {
   const DocumentsScreen({super.key});
@@ -16,48 +23,55 @@ class DocumentsScreen extends ConsumerStatefulWidget {
 }
 
 class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
-  final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
   Timer? _debounce;
+  late final PagingController<int, DocumentModel> _pagingController;
 
   @override
   void initState() {
     super.initState();
-    _scrollController.addListener(_onScroll);
+    _pagingController = PagingController<int, DocumentModel>(
+      getNextPageKey: (state) {
+        if (state.lastPageIsEmpty) return null;
+        final lastItems = state.pages?.last;
+        if (lastItems != null && lastItems.length < 10) return null;
+        return state.nextIntPageKey;
+      },
+      fetchPage: (pageKey) async {
+        final response = await ref.read(documentRepositoryProvider).getDocuments(
+              page: pageKey,
+              limit: 10,
+              search: ref.read(documentSearchQueryProvider),
+            );
+        return response.data;
+      },
+    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(documentsPagingControllerProvider.notifier).state = _pagingController;
+    });
   }
 
   @override
   void dispose() {
-    _scrollController.removeListener(_onScroll);
-    _scrollController.dispose();
+    if (ref.read(documentsPagingControllerProvider) == _pagingController) {
+      ref.read(documentsPagingControllerProvider.notifier).state = null;
+    }
     _searchController.dispose();
     _debounce?.cancel();
+    _pagingController.dispose();
     super.dispose();
-  }
-
-  void _onScroll() {
-    if (!_scrollController.hasClients) return;
-    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
-      ref.read(documentsListProvider.notifier).loadMore();
-    }
   }
 
   void _onSearchChanged(String query) {
     if (_debounce?.isActive ?? false) _debounce!.cancel();
     _debounce = Timer(const Duration(milliseconds: 500), () {
       ref.read(documentSearchQueryProvider.notifier).state = query.trim();
+      _pagingController.refresh();
     });
-  }
-
-  Future<void> _onRefresh() async {
-    ref.invalidate(documentsListProvider);
   }
 
   @override
   Widget build(BuildContext context) {
-    final documentsState = ref.watch(documentsListProvider);
-    final theme = Theme.of(context);
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Документи'),
@@ -65,97 +79,57 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
       ),
       body: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-            child: TextField(
-              controller: _searchController,
-              onChanged: _onSearchChanged,
-              decoration: InputDecoration(
-                hintText: 'Пошук документів...',
-                prefixIcon: const Icon(Icons.search),
-                filled: true,
-                fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: BorderSide.none,
-                ),
-                contentPadding: const EdgeInsets.symmetric(vertical: 0),
-              ),
-            ),
+          SearchWithDownloadsBar(
+            controller: _searchController,
+            hintText: 'Пошук документів...',
+            onChanged: _onSearchChanged,
+            downloadsTooltip: 'Завантажені документи',
+            onDownloadsTap: () => context.push('/documents/offline'),
           ),
           Expanded(
-            child: documentsState.when(
-              data: (documents) {
-                if (documents.isEmpty) {
-                  return RefreshIndicator(
-                    onRefresh: _onRefresh,
-                    child: LayoutBuilder(
-                      builder: (context, constraints) => SingleChildScrollView(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                          child: _buildEmptyState(),
-                        ),
+            child: RefreshIndicator(
+              onRefresh: () async => _pagingController.refresh(),
+              child: PagingListener(
+                controller: _pagingController,
+                builder: (context, state, fetchNextPage) => PagedListView<int, DocumentModel>(
+                  state: state,
+                  fetchNextPage: fetchNextPage,
+                  padding: EdgeInsets.fromLTRB(16, 8, 16, 100 + MediaQuery.paddingOf(context).bottom),
+                  builderDelegate: PagedChildBuilderDelegate<DocumentModel>(
+                    firstPageProgressIndicatorBuilder: (_) => const ShimmerLoadingList(),
+                    firstPageErrorIndicatorBuilder: (_) => CommonErrorWidget(
+                      error: state.error?.toString() ?? 'Помилка завантаження',
+                      onRetry: _pagingController.refresh,
+                    ),
+                    noItemsFoundIndicatorBuilder: (_) => _buildEmptyState(),
+                    itemBuilder: (context, doc, index) => DocumentCard(
+                      index: index,
+                      document: doc,
+                      onTap: () {
+                        if (doc.fileUrl != null) {
+                          context.push('/documents/view', extra: doc);
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Файл відсутній')),
+                          );
+                        }
+                      },
+                      onLongPress: () => showDownloadPopup(
+                        context: context,
+                        ref: ref,
+                        remoteId: doc.id,
+                        kind: OfflineDownloadKind.document,
+                        title: doc.title ?? 'Документ',
+                        remoteUrl: doc.fileUrl,
                       ),
                     ),
-                  );
-                }
-
-                return RefreshIndicator(
-                  onRefresh: _onRefresh,
-                  child: ListView.builder(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    controller: _scrollController,
-                    padding: EdgeInsets.fromLTRB(16, 8, 16, 100 + MediaQuery.paddingOf(context).bottom),
-                    itemCount: documents.length + 1,
-                    itemBuilder: (context, index) {
-                      if (index == documents.length) {
-                        return _buildBottomLoader();
-                      }
-                      
-                      final doc = documents[index];
-                      return DocumentCard(
-                        index: index,
-                        document: doc,
-                        onTap: () {
-                          if (doc.fileUrl != null) {
-                            context.push('/documents/view', extra: doc);
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Файл відсутній')),
-                            );
-                          }
-                        },
-                      );
-                    },
                   ),
-                );
-              },
-              loading: () => const ShimmerLoadingList(),
-              error: (err, _) => CommonErrorWidget(
-                error: err.toString(),
-                onRetry: _onRefresh,
+                ),
               ),
             ),
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildBottomLoader() {
-    final hasMore = ref.read(documentsListProvider.notifier).hasMore;
-    if (!hasMore) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 24),
-        child: Center(
-          child: Text('Більше немає документів', style: TextStyle(color: Colors.grey)),
-        ),
-      );
-    }
-    return const Padding(
-      padding: EdgeInsets.symmetric(vertical: 24),
-      child: Center(child: CircularProgressIndicator()),
     );
   }
 

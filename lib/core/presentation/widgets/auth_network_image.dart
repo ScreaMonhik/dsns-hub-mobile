@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../features/auth/providers/auth_provider.dart';
@@ -49,17 +50,22 @@ class AuthNetworkImage extends ConsumerWidget {
         : screenWidth;
     final cacheWidth = (logicalWidth * dpr).round().clamp(1, 4096);
 
-    return Image.network(
-      resolvedUrl,
+    return CachedNetworkImage(
+      imageUrl: resolvedUrl,
+      httpHeaders: headers,
       width: width,
       height: height,
       fit: fit,
-      headers: headers,
-      cacheWidth: cacheWidth,
-      gaplessPlayback: true,
-      filterQuality: FilterQuality.medium,
-      errorBuilder:
-          errorBuilder ?? (context, error, stackTrace) => _fallback(context),
+      memCacheWidth: cacheWidth,
+      fadeInDuration: const Duration(milliseconds: 180),
+      errorWidget: (context, url, error) {
+        return errorBuilder?.call(context, error, StackTrace.current) ?? _fallback(context);
+      },
+      placeholder: (context, url) => Container(
+        width: width,
+        height: height,
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      ),
     );
   }
 

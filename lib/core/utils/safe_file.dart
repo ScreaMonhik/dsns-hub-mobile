@@ -14,12 +14,20 @@ String sanitizeDownloadFileName(String fileName) {
 }
 
 String resolveTempSavePath(Directory tempDir, String fileName) {
+  return resolveSafeSavePath(tempDir, fileName);
+}
+
+String resolveDocumentsSavePath(Directory documentsDir, String fileName) {
+  return resolveSafeSavePath(documentsDir, fileName);
+}
+
+String resolveSafeSavePath(Directory dir, String fileName) {
   final safeName = sanitizeDownloadFileName(fileName);
-  final file = File('${tempDir.path}${Platform.pathSeparator}$safeName');
-  final tempPath = tempDir.path.endsWith(Platform.pathSeparator)
-      ? tempDir.path
-      : '${tempDir.path}${Platform.pathSeparator}';
-  if (!file.path.startsWith(tempPath)) {
+  final file = File('${dir.path}${Platform.pathSeparator}$safeName');
+  final rootPath = dir.path.endsWith(Platform.pathSeparator)
+      ? dir.path
+      : '${dir.path}${Platform.pathSeparator}';
+  if (!file.path.startsWith(rootPath)) {
     throw Exception('Некоректний шлях завантаження');
   }
   return file.path;

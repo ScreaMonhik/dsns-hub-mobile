@@ -3,6 +3,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../features/auth/providers/auth_provider.dart';
 import '../config/app_config.dart';
+import '../config/maintenance.dart';
+import '../security/certificate_pinning.dart';
 import '../storage/secure_storage_provider.dart';
 
 const _retriedExtraKey = 'dsns_retried';
@@ -36,6 +38,14 @@ final Provider<Dio> dioProvider = Provider<Dio>((ref) {
         return handler.next(options);
       },
       onError: (DioException e, handler) async {
+        if (isMaintenanceResponse(e)) {
+          MaintenanceStore.instance.apply(
+            enabled: true,
+            message: maintenanceMessageFromError(e),
+          );
+          return handler.next(e);
+        }
+
         if (e.response?.statusCode == 429) {
           return handler.reject(
             DioException(
@@ -94,6 +104,9 @@ final Provider<Dio> dioProvider = Provider<Dio>((ref) {
       },
     ),
   );
+
+  applyCertificatePinning(dio);
+  applyCertificatePinning(refreshDio);
 
   if (kDebugMode) {
     dio.interceptors.add(

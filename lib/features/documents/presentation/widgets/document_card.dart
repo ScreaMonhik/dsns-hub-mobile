@@ -6,12 +6,14 @@ import '../../data/models/document_models.dart';
 class DocumentCard extends StatelessWidget {
   final DocumentModel document;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
   final int index;
 
   const DocumentCard({
     super.key,
     required this.document,
     required this.onTap,
+    this.onLongPress,
     this.index = 0,
   });
 
@@ -41,6 +43,7 @@ class DocumentCard extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
+          onLongPress: onLongPress,
           child: Padding(
             padding: const EdgeInsets.all(16.0),
             child: Row(

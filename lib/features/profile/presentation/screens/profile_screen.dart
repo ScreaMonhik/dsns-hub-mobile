@@ -1,16 +1,16 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
-import '../../providers/profile_provider.dart';
-import '../../../auth/providers/auth_provider.dart';
-import '../../../../core/presentation/widgets/auth_network_image.dart';
-import '../../../../core/theme/theme_provider.dart';
+
 import '../../../../core/presentation/utils/app_snackbar.dart';
+import '../../../../core/presentation/widgets/auth_network_image.dart';
 import '../../../../core/providers/app_info_provider.dart';
-import '../../../../core/providers/cache_provider.dart';
-import '../../../../core/security/password_rules.dart';
+import '../../../auth/data/models/auth_model.dart';
+import '../../../auth/providers/auth_provider.dart';
+import '../../providers/profile_provider.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -30,27 +30,27 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         maxHeight: 1024,
         imageQuality: 85,
       );
-      
+
       if (image != null) {
         await ref.read(profileProvider.notifier).uploadAvatar(image.path);
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Фото профілю успішно оновлено'),
-              backgroundColor: Colors.green,
-            ),
-          );
+          AppSnackBar.showSuccess(context, 'Фото профілю успішно оновлено');
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Помилка завантаження фото: ${e.toString().replaceAll("Exception: ", "")}'), 
-            backgroundColor: Colors.red,
-          ),
+        AppSnackBar.showError(
+          context,
+          'Помилка завантаження фото: ${e.toString().replaceAll("Exception: ", "")}',
         );
       }
+    }
+  }
+
+  Future<void> _copyEmail(String email) async {
+    await Clipboard.setData(ClipboardData(text: email));
+    if (mounted) {
+      AppSnackBar.showSuccess(context, 'Email скопійовано');
     }
   }
 
@@ -61,245 +61,85 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Профіль'),
+        title: const Text('Особистий кабінет'),
       ),
       body: profileState.when(
         data: (profile) {
           if (profile == null) return const Center(child: Text('Дані відсутні'));
-          
-          return SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Center(
-                  child: Stack(
-                    alignment: Alignment.bottomRight,
-                    children: [
-                      CircleAvatar(
-                        radius: 64,
-                        backgroundColor: theme.colorScheme.primaryContainer,
-                        child: profile.avatarUrl != null
-                            ? ClipOval(
-                                child: AuthNetworkImage(
-                                  imageUrl: profile.avatarUrl!,
-                                  width: 128,
-                                  height: 128,
-                                  fit: BoxFit.cover,
-                                ),
-                              )
-                            : Text(
-                                profile.firstName[0].toUpperCase(),
-                                style: TextStyle(
-                                  fontSize: 48,
-                                  fontWeight: FontWeight.bold,
-                                  color: theme.colorScheme.onPrimaryContainer,
-                                ),
-                              ),
-                      ),
-                      Positioned(
-                        bottom: 0,
-                        right: 0,
-                        child: Material(
-                          color: theme.colorScheme.primary,
-                          shape: const CircleBorder(),
-                          elevation: 4,
-                          child: InkWell(
-                            onTap: profileState.isLoading ? null : _pickAndUploadImage,
-                            customBorder: const CircleBorder(),
-                            child: const Padding(
-                              padding: EdgeInsets.all(12.0),
-                              child: Icon(Icons.camera_alt, color: Colors.white, size: 22),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                if (profileState.isRefreshing)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 16.0),
-                    child: CircularProgressIndicator(),
-                  ),
-                const SizedBox(height: 32),
-                _buildInfoTile(context, Icons.person_outline, 'ПІБ', '${profile.lastName} ${profile.firstName}'),
-                const SizedBox(height: 16),
-                _buildInfoTile(context, Icons.email_outlined, 'Email', profile.email),
-                const SizedBox(height: 16),
-                _buildInfoTile(context, Icons.work_outline, 'Роль', profile.role),
-                const SizedBox(height: 32),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    'Сповіщення',
-                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _notificationSwitchTile(
-                  title: 'Тривоги',
-                  subtitle: 'Тривоги не можна вимкнути',
-                  value: true,
-                  onChanged: null,
-                ),
-                const SizedBox(height: 8),
-                _notificationSwitchTile(
-                  title: 'Новини',
-                  subtitle: 'Push про нові публікації',
-                  value: profile.notifyNews,
-                  onChanged: (value) async {
-                    try {
-                      await ref.read(profileProvider.notifier).updateNotificationPrefs(notifyNews: value);
-                    } catch (e) {
-                      if (context.mounted) {
-                        AppSnackBar.showError(context, e.toString().replaceAll('Exception: ', ''));
-                      }
-                    }
-                  },
-                ),
-                const SizedBox(height: 8),
-                _notificationSwitchTile(
-                  title: 'Опитування',
-                  subtitle: 'Нові опитування та нагадування про дедлайн',
-                  value: profile.notifyPolls,
-                  onChanged: (value) async {
-                    try {
-                      await ref.read(profileProvider.notifier).updateNotificationPrefs(notifyPolls: value);
-                    } catch (e) {
-                      if (context.mounted) {
-                        AppSnackBar.showError(context, e.toString().replaceAll('Exception: ', ''));
-                      }
-                    }
-                  },
-                ),
-                const SizedBox(height: 8),
-                Material(
-                  color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(16),
-                  child: ListTile(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      side: BorderSide(color: theme.colorScheme.outlineVariant),
-                    ),
-                    leading: Icon(Icons.campaign_outlined, color: theme.colorScheme.primary),
-                    title: const Text('Історія тривог'),
-                    trailing: const Icon(Icons.chevron_right),
+
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+            children: [
+              _ProfileHeader(
+                profile: profile,
+                isUploading: profileState.isRefreshing,
+                onChangePhoto: profileState.isLoading ? null : _pickAndUploadImage,
+              ),
+              const SizedBox(height: 24),
+              _AccountPanel(
+                email: profile.email,
+                onCopyEmail: () => _copyEmail(profile.email),
+              ),
+              const SizedBox(height: 20),
+              _SettingsGroup(
+                children: [
+                  _SettingsTile(
+                    icon: Icons.campaign_outlined,
+                    title: 'Історія тривог',
+                    subtitle: 'Критичні сповіщення ДСНС',
                     onTap: () => context.push('/profile/alerts'),
                   ),
-                ),
-                const SizedBox(height: 32),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    'Налаштування додатку', 
-                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                  _SettingsTile(
+                    icon: Icons.settings_outlined,
+                    title: 'Налаштування',
+                    subtitle: 'Тема, сповіщення, кеш і безпека',
+                    onTap: () => context.push('/profile/settings'),
+                    showDivider: false,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 28),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () => ref.read(authStateProvider.notifier).logout(),
+                  icon: Icon(Icons.logout, color: theme.colorScheme.error),
+                  label: Text(
+                    'Вийти з акаунта',
+                    style: TextStyle(color: theme.colorScheme.error, fontWeight: FontWeight.bold),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    side: BorderSide(color: theme.colorScheme.error.withValues(alpha: 0.45)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   ),
                 ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: SegmentedButton<ThemeMode>(
-                    segments: const [
-                      ButtonSegment(value: ThemeMode.system, icon: Icon(Icons.brightness_auto), label: Text('Системна')),
-                      ButtonSegment(value: ThemeMode.light, icon: Icon(Icons.light_mode), label: Text('Світла')),
-                      ButtonSegment(value: ThemeMode.dark, icon: Icon(Icons.dark_mode), label: Text('Темна')),
-                    ],
-                    selected: {ref.watch(themeProvider)},
-                    onSelectionChanged: (Set<ThemeMode> newSelection) {
-                      ref.read(themeProvider.notifier).setTheme(newSelection.first);
-                    },
-                  ),
-                ),
-                const SizedBox(height: 32),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: () => _showChangePasswordSheet(context),
-                    icon: Icon(Icons.lock_reset, color: theme.colorScheme.primary),
-                    label: Text('Змінити пароль', style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.bold)),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      side: BorderSide(color: theme.colorScheme.primary),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              ),
+              const SizedBox(height: 40),
+              ref.watch(appInfoProvider).when(
+                data: (info) => Column(
+                  children: [
+                    Text(
+                      'DSNS Hub v${info.version} (${info.buildNumber})',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
                     ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Consumer(
-                  builder: (context, ref, child) {
-                    final cacheState = ref.watch(cacheProvider);
-                    return SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: cacheState.isLoading
-                            ? null
-                            : () async {
-                                await ref.read(cacheProvider.notifier).clearCache();
-                                if (context.mounted) {
-                                  AppSnackBar.showSuccess(context, 'Кеш тимчасових файлів очищено');
-                                }
-                              },
-                        icon: cacheState.isLoading
-                            ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                            : Icon(Icons.delete_sweep_outlined, color: theme.colorScheme.onSurfaceVariant),
-                        label: Text(
-                          cacheState.when(
-                            data: (size) => 'Очистити кеш ($size)',
-                            loading: () => 'Обчислення...',
-                            error: (_, __) => 'Помилка кешу',
-                          ),
-                          style: TextStyle(color: theme.colorScheme.onSurfaceVariant, fontWeight: FontWeight.bold),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          side: BorderSide(color: theme.colorScheme.outline),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                        ),
+                    const SizedBox(height: 4),
+                    Text(
+                      kReleaseMode ? 'Production' : 'Debug',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
                       ),
-                    );
-                  },
-                ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: () => ref.read(authStateProvider.notifier).logout(),
-                    icon: Icon(Icons.logout, color: theme.colorScheme.error),
-                    label: Text('Вийти з акаунта', style: TextStyle(color: theme.colorScheme.error, fontWeight: FontWeight.bold)),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      side: BorderSide(color: theme.colorScheme.error),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                     ),
-                  ),
+                  ],
                 ),
-                const SizedBox(height: 48),
-                ref.watch(appInfoProvider).when(
-                  data: (info) => Column(
-                    children: [
-                      Text(
-                        'DSNS Hub v${info.version} (Build ${info.buildNumber})',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        kReleaseMode ? 'Environment: Production' : 'Environment: Debug',
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
-                        ),
-                      ),
-                    ],
-                  ),
-                  loading: () => const SizedBox.shrink(),
-                  error: (_, __) => const SizedBox.shrink(),
-                ),
-                const SizedBox(height: 24),
-              ],
-            ),
+                loading: () => const SizedBox.shrink(),
+                error: (_, __) => const SizedBox.shrink(),
+              ),
+            ],
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -307,199 +147,185 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       ),
     );
   }
-
-  Widget _buildInfoTile(BuildContext context, IconData icon, String label, String value) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: theme.colorScheme.outlineVariant),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.primaryContainer,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, color: theme.colorScheme.primary, size: 24),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
-                const SizedBox(height: 4),
-                Text(value, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _notificationSwitchTile({
-    required String title,
-    required String subtitle,
-    required bool value,
-    required ValueChanged<bool>? onChanged,
-  }) {
-    final theme = Theme.of(context);
-    return Container(
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: theme.colorScheme.outlineVariant),
-      ),
-      child: SwitchListTile(
-        title: Text(title, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
-        subtitle: Text(subtitle),
-        value: value,
-        onChanged: onChanged,
-      ),
-    );
-  }
-
-  void _showChangePasswordSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (context) => const _ChangePasswordSheet(),
-    );
-  }
 }
 
-class _ChangePasswordSheet extends ConsumerStatefulWidget {
-  const _ChangePasswordSheet();
+class _ProfileHeader extends StatelessWidget {
+  const _ProfileHeader({
+    required this.profile,
+    required this.isUploading,
+    required this.onChangePhoto,
+  });
 
-  @override
-  ConsumerState<_ChangePasswordSheet> createState() => _ChangePasswordSheetState();
-}
-
-class _ChangePasswordSheetState extends ConsumerState<_ChangePasswordSheet> {
-  final _oldPasswordController = TextEditingController();
-  final _newPasswordController = TextEditingController();
-  bool _isSubmitting = false;
-  bool _obscureOld = true;
-  bool _obscureNew = true;
-
-  @override
-  void dispose() {
-    _oldPasswordController.dispose();
-    _newPasswordController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _submit() async {
-    final oldPassword = _oldPasswordController.text.trim();
-    final newPassword = _newPasswordController.text.trim();
-
-    if (oldPassword.isEmpty || newPassword.isEmpty) {
-      AppSnackBar.showError(context, 'Усі поля є обов\'язковими');
-      return;
-    }
-
-    if (!PasswordRules.isValid(newPassword)) {
-      AppSnackBar.showError(context, PasswordRules.message);
-      return;
-    }
-
-    setState(() => _isSubmitting = true);
-    FocusScope.of(context).unfocus();
-
-    try {
-      await ref.read(profileProvider.notifier).changePassword(oldPassword, newPassword);
-      if (mounted) {
-        Navigator.pop(context);
-        AppSnackBar.showSuccess(context, 'Пароль успішно змінено');
-      }
-    } catch (e) {
-      if (mounted) {
-        AppSnackBar.showError(context, e.toString().replaceAll('Exception: ', ''));
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isSubmitting = false);
-      }
-    }
-  }
+  final UserProfile profile;
+  final bool isUploading;
+  final VoidCallback? onChangePhoto;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
-    return Padding(
-      padding: EdgeInsets.fromLTRB(24, 24, 24, MediaQuery.viewInsetsOf(context).bottom + 24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            'Зміна пароля',
-            style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 24),
-          TextField(
-            controller: _oldPasswordController,
-            enabled: !_isSubmitting,
-            obscureText: _obscureOld,
-            decoration: InputDecoration(
-              labelText: 'Поточний пароль',
-              prefixIcon: const Icon(Icons.lock_outline),
-              suffixIcon: IconButton(
-                icon: Icon(_obscureOld ? Icons.visibility_off_outlined : Icons.visibility_outlined),
-                onPressed: () => setState(() => _obscureOld = !_obscureOld),
-              ),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
-              filled: true,
+    final departmentName = profile.department?.name;
+
+    return Column(
+      children: [
+        Stack(
+          alignment: Alignment.bottomRight,
+          children: [
+            CircleAvatar(
+              radius: 52,
+              backgroundColor: theme.colorScheme.primaryContainer,
+              child: profile.avatarUrl != null
+                  ? ClipOval(
+                      child: AuthNetworkImage(
+                        imageUrl: profile.avatarUrl!,
+                        width: 104,
+                        height: 104,
+                        fit: BoxFit.cover,
+                      ),
+                    )
+                  : Text(
+                      profile.firstName[0].toUpperCase(),
+                      style: TextStyle(
+                        fontSize: 40,
+                        fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.onPrimaryContainer,
+                      ),
+                    ),
             ),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _newPasswordController,
-            enabled: !_isSubmitting,
-            obscureText: _obscureNew,
-            decoration: InputDecoration(
-              labelText: 'Новий пароль',
-              prefixIcon: const Icon(Icons.lock_reset),
-              suffixIcon: IconButton(
-                icon: Icon(_obscureNew ? Icons.visibility_off_outlined : Icons.visibility_outlined),
-                onPressed: () => setState(() => _obscureNew = !_obscureNew),
+            Material(
+              color: theme.colorScheme.primary,
+              shape: const CircleBorder(),
+              child: InkWell(
+                onTap: onChangePhoto,
+                customBorder: const CircleBorder(),
+                child: const Padding(
+                  padding: EdgeInsets.all(8),
+                  child: Icon(Icons.camera_alt, color: Colors.white, size: 18),
+                ),
               ),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
-              filled: true,
             ),
+          ],
+        ),
+        if (isUploading)
+          const Padding(
+            padding: EdgeInsets.only(top: 12),
+            child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
           ),
+        const SizedBox(height: 16),
+        Text(
+          profile.fullName,
+          textAlign: TextAlign.center,
+          style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+        ),
+        if (departmentName != null && departmentName.isNotEmpty) ...[
           const SizedBox(height: 8),
-          Text(
-            'Пароль має містити щонайменше 8 символів, 1 велику та малу літеру, 1 цифру та спецсимвол.',
-            style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-          ),
-          const SizedBox(height: 32),
-          SizedBox(
-            height: 56,
-            child: FilledButton(
-              onPressed: _isSubmitting ? null : _submit,
-              style: FilledButton.styleFrom(
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.primaryContainer.withValues(alpha: 0.65),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              departmentName,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: theme.colorScheme.onPrimaryContainer,
+                fontWeight: FontWeight.w600,
               ),
-              child: _isSubmitting
-                  ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(strokeWidth: 2.5))
-                  : const Text('ЗБЕРЕГТИ ПАРОЛЬ', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             ),
           ),
         ],
+      ],
+    );
+  }
+}
+
+class _AccountPanel extends StatelessWidget {
+  const _AccountPanel({
+    required this.email,
+    required this.onCopyEmail,
+  });
+
+  final String email;
+  final VoidCallback onCopyEmail;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainer,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.45)),
       ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.fromLTRB(16, 6, 8, 6),
+        leading: Icon(Icons.mail_outline, color: theme.colorScheme.primary),
+        title: Text(
+          email,
+          style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
+        ),
+        subtitle: const Text('Робоча адреса'),
+        trailing: IconButton(
+          tooltip: 'Скопіювати',
+          onPressed: onCopyEmail,
+          icon: const Icon(Icons.copy_outlined),
+        ),
+      ),
+    );
+  }
+}
+
+class _SettingsGroup extends StatelessWidget {
+  const _SettingsGroup({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainer,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.45)),
+      ),
+      child: Column(children: children),
+    );
+  }
+}
+
+class _SettingsTile extends StatelessWidget {
+  const _SettingsTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+    this.showDivider = true,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+  final bool showDivider;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      children: [
+        ListTile(
+          onTap: onTap,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          leading: Icon(icon, color: theme.colorScheme.primary),
+          title: Text(title, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+          subtitle: Text(subtitle),
+          trailing: const Icon(Icons.chevron_right),
+        ),
+        if (showDivider)
+          Divider(height: 1, indent: 56, color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
+      ],
     );
   }
 }

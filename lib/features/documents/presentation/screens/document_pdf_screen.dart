@@ -6,6 +6,8 @@ import 'package:share_plus/share_plus.dart';
 import 'package:printing/printing.dart';
 import '../../../../core/utils/share_helper.dart';
 import 'package:pdf/pdf.dart';
+import '../../../../core/offline/download_actions.dart';
+import '../../../../core/offline/download_manager.dart';
 import '../../data/models/document_models.dart';
 import '../../data/repositories/document_repository.dart';
 
@@ -53,6 +55,20 @@ class _DocumentPdfScreenState extends ConsumerState<DocumentPdfScreen> {
       final fileUrl = widget.document.fileUrl;
       if (fileUrl == null || fileUrl.isEmpty) {
         throw Exception('Посилання на файл відсутнє');
+      }
+
+      final offline = await ref.read(downloadManagerProvider).find(
+        widget.document.id,
+        OfflineDownloadKind.document,
+      );
+      if (offline != null && offline.fileExists) {
+        if (mounted) {
+          setState(() {
+            _localPath = offline.filePath;
+            _isLoading = false;
+          });
+        }
+        return;
       }
 
       final fileName = fileUrl.split('/').last;
@@ -156,6 +172,23 @@ class _DocumentPdfScreenState extends ConsumerState<DocumentPdfScreen> {
             },
           ),
           if (_localPath != null && !_isLoading && !_isSearchMode) ...[
+            IconButton(
+              tooltip: 'Завантажити',
+              icon: const Icon(Icons.download_outlined),
+              onPressed: () {
+                final fileUrl = widget.document.fileUrl;
+                if (fileUrl == null) return;
+                downloadAndNotify(
+                  context: context,
+                  ref: ref,
+                  remoteId: widget.document.id,
+                  kind: OfflineDownloadKind.document,
+                  title: widget.document.title ?? 'Документ',
+                  remoteUrl: fileUrl,
+                  localPath: _localPath,
+                );
+              },
+            ),
             IconButton(
               icon: const Icon(Icons.share_outlined),
               onPressed: () {

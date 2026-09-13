@@ -1,17 +1,20 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../../core/network/dio_provider.dart';
+import '../../../../core/offline/offline_cache.dart';
+import '../../../../core/utils/isolate_json.dart';
 import '../models/news_models.dart';
-import '../../../../core/network/dio_provider.dart'; // Вкажіть правильний шлях до вашого клієнта
 
 final newsRepositoryProvider = Provider<NewsRepository>((ref) {
-  final dio = ref.watch(dioProvider);
-  return NewsRepository(dio);
+  return NewsRepository(ref.watch(dioProvider), ref.watch(offlineCacheProvider));
 });
 
 class NewsRepository {
-  final Dio _dio;
+  NewsRepository(this._dio, this._cache);
 
-  NewsRepository(this._dio);
+  final Dio _dio;
+  final OfflineCache _cache;
 
   Future<NewsPaginatedResponse> getNews({
     int page = 1,
@@ -21,28 +24,56 @@ class NewsRepository {
     String? departmentId,
     String? search,
   }) async {
-    final response = await _dio.get('/news', queryParameters: {
-      'page': page,
-      'limit': limit,
-      if (categoryId != null) 'categoryId': categoryId,
-      if (status != null) 'status': status,
-      if (departmentId != null) 'departmentId': departmentId,
-      if (search != null && search.isNotEmpty) 'search': search,
-    });
-
-    return NewsPaginatedResponse.fromJson(response.data);
+    final cacheKey = 'news:p=$page:l=$limit:c=${categoryId ?? ''}:s=${search ?? ''}:st=${status ?? ''}:d=${departmentId ?? ''}';
+    try {
+      final response = await _dio.get('/news', queryParameters: {
+        'page': page,
+        'limit': limit,
+        if (categoryId != null) 'categoryId': categoryId,
+        if (status != null) 'status': status,
+        if (departmentId != null) 'departmentId': departmentId,
+        if (search != null && search.isNotEmpty) 'search': search,
+      });
+      await _cache.put(cacheKey, response.data);
+      return await parseJsonMapInIsolate(response.data, NewsPaginatedResponse.fromJson);
+    } catch (error) {
+      final cached = await _cache.get(cacheKey);
+      if (cached != null) {
+        return parseJsonMapInIsolate(cached, NewsPaginatedResponse.fromJson);
+      }
+      rethrow;
+    }
   }
 
   Future<NewsArticle> getNewsById(String id) async {
-    final response = await _dio.get('/news/$id');
-    return NewsArticle.fromJson(response.data);
+    final cacheKey = 'news:id=$id';
+    try {
+      final response = await _dio.get('/news/$id');
+      await _cache.put(cacheKey, response.data);
+      return await parseJsonMapInIsolate(response.data, NewsArticle.fromJson);
+    } catch (error) {
+      final cached = await _cache.get(cacheKey);
+      if (cached != null) {
+        return parseJsonMapInIsolate(cached, NewsArticle.fromJson);
+      }
+      rethrow;
+    }
   }
 
   Future<List<NewsCategory>> getCategories() async {
-    final response = await _dio.get('/news/categories');
-    // Обробляємо як прямий масив, так і обгорнутий у поле 'data'
-    final data = response.data is List ? response.data : response.data['data'];
-    return (data as List).map((json) => NewsCategory.fromJson(json)).toList();
+    const cacheKey = 'news:categories';
+    try {
+      final response = await _dio.get('/news/categories');
+      final data = response.data is List ? response.data : response.data['data'];
+      await _cache.put(cacheKey, data);
+      return await parseJsonListInIsolate(data, NewsCategory.fromJson);
+    } catch (error) {
+      final cached = await _cache.get(cacheKey);
+      if (cached != null) {
+        return parseJsonListInIsolate(cached, NewsCategory.fromJson);
+      }
+      rethrow;
+    }
   }
 
   Future<void> vote(String newsId, String voteType) async {

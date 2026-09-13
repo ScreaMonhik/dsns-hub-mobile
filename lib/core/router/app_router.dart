@@ -13,7 +13,14 @@ import '../../features/news/presentations/screens/news_detail_screen.dart';
 import '../../features/chats/presentation/screens/chats_screen.dart';
 import '../../features/chats/presentation/screens/chat_detail_screen.dart';
 import '../../features/chats/presentation/screens/chat_info_screen.dart';
+import '../../core/config/feature_flags.dart';
+import '../../core/config/maintenance_provider.dart';
+import '../../core/offline/download_manager.dart';
+import '../../features/maintenance/presentation/screens/maintenance_screen.dart';
+import '../../features/offline/presentation/screens/offline_downloads_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
+import '../../features/profile/presentation/screens/settings_screen.dart';
+import '../../features/profile/presentation/screens/notification_settings_screen.dart';
 import '../../features/profile/presentation/screens/alerts_inbox_screen.dart';
 import '../../features/profile/presentation/screens/alert_detail_screen.dart';
 import '../../features/documents/presentation/screens/documents_screen.dart';
@@ -27,19 +34,44 @@ import '../../features/projects/data/models/project_models.dart';
 final routerProvider = Provider<GoRouter>((ref) {
   // Використовуємо ValueNotifier, щоб GoRouter реагував на зміни без перестворення самого себе
   final authStateNotifier = ValueNotifier<AsyncValue<bool>>(const AsyncValue.loading());
+  final refreshTick = ValueNotifier<int>(0);
   
   ref.onDispose(() {
     authStateNotifier.dispose();
+    refreshTick.dispose();
   });
 
   ref.listen(authStateProvider, (previous, next) {
     authStateNotifier.value = next;
+    refreshTick.value++;
   });
+  ref.listen(featureFlagsProvider, (previous, next) {
+    refreshTick.value++;
+  });
+  ref.listen(
+    maintenanceStatusProvider.select((store) => (store.status.enabled, store.status.message)),
+    (previous, next) {
+      refreshTick.value++;
+    },
+  );
 
   return GoRouter(
     initialLocation: '/news',
-    refreshListenable: authStateNotifier,
+    refreshListenable: refreshTick,
     redirect: (context, state) {
+      final isMaintenanceRoute = state.matchedLocation == '/maintenance';
+      final maintenance = ref.read(maintenanceStatusProvider).status;
+      if (maintenance.enabled) {
+        return isMaintenanceRoute ? null : '/maintenance';
+      }
+      if (isMaintenanceRoute) {
+        final authState = authStateNotifier.value;
+        if (authState.isLoading) return null;
+        final isAuthenticated = authState.valueOrNull ?? false;
+        if (!isAuthenticated) return '/login';
+        return ref.read(featureFlagsProvider).newsEnabled ? '/news' : '/documents';
+      }
+
       final authState = authStateNotifier.value;
       final isAuthRoute = state.matchedLocation == '/login' || state.matchedLocation == '/register';
       
@@ -51,11 +83,25 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isAuthenticated = authState.valueOrNull ?? false;
 
       if (!isAuthenticated && !isAuthRoute) return '/login';
-      if (isAuthenticated && isAuthRoute) return '/news';
+      if (isAuthenticated && isAuthRoute) {
+        return ref.read(featureFlagsProvider).newsEnabled ? '/news' : '/documents';
+      }
+
+      final flags = ref.read(featureFlagsProvider);
+      if (isAuthenticated && !flags.newsEnabled && state.matchedLocation.startsWith('/news')) {
+        return '/documents';
+      }
+      if (isAuthenticated && !flags.pollsEnabled && state.matchedLocation.startsWith('/polls')) {
+        return '/documents';
+      }
       
       return null;
     },
     routes: [
+      GoRoute(
+        path: '/maintenance',
+        builder: (context, state) => const MaintenanceScreen(),
+      ),
       GoRoute(
         path: '/login',
         builder: (context, state) => const LoginScreen(),
@@ -68,6 +114,16 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/profile',
         builder: (context, state) => const ProfileScreen(),
         routes: [
+          GoRoute(
+            path: 'settings',
+            builder: (context, state) => const SettingsScreen(),
+            routes: [
+              GoRoute(
+                path: 'notifications',
+                builder: (context, state) => const NotificationSettingsScreen(),
+              ),
+            ],
+          ),
           GoRoute(
             path: 'alerts',
             builder: (context, state) => const AlertsInboxScreen(),
@@ -145,6 +201,12 @@ final routerProvider = Provider<GoRouter>((ref) {
                 builder: (context, state) => const DocumentsScreen(),
                 routes: [
                   GoRoute(
+                    path: 'offline',
+                    builder: (context, state) => const OfflineDownloadsScreen(
+                      kind: OfflineDownloadKind.document,
+                    ),
+                  ),
+                  GoRoute(
                     path: 'view',
                     pageBuilder: (context, state) {
                       final document = state.extra;
@@ -176,6 +238,12 @@ final routerProvider = Provider<GoRouter>((ref) {
                 path: '/projects',
                 builder: (context, state) => const ProjectsScreen(),
                 routes: [
+                  GoRoute(
+                    path: 'offline',
+                    builder: (context, state) => const OfflineDownloadsScreen(
+                      kind: OfflineDownloadKind.project,
+                    ),
+                  ),
                   GoRoute(
                     path: ':id',
                     pageBuilder: (context, state) {

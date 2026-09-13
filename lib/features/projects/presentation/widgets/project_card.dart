@@ -8,6 +8,7 @@ class ProjectCard extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onLike;
   final VoidCallback onDislike;
+  final VoidCallback? onLongPress;
   final int index;
 
   const ProjectCard({
@@ -16,6 +17,7 @@ class ProjectCard extends StatelessWidget {
     required this.onTap,
     required this.onLike,
     required this.onDislike,
+    this.onLongPress,
     this.index = 0,
   });
 
@@ -45,6 +47,7 @@ class ProjectCard extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
+          onLongPress: onLongPress,
           child: Padding(
             padding: const EdgeInsets.all(16.0),
             child: Column(

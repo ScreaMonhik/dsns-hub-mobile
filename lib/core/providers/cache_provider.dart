@@ -1,13 +1,18 @@
 import 'dart:io';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../offline/offline_cache.dart';
+
 final cacheProvider = StateNotifierProvider<CacheNotifier, AsyncValue<String>>((ref) {
-  return CacheNotifier()..calculateCache();
+  return CacheNotifier(ref)..calculateCache();
 });
 
 class CacheNotifier extends StateNotifier<AsyncValue<String>> {
-  CacheNotifier() : super(const AsyncValue.loading());
+  CacheNotifier(this._ref) : super(const AsyncValue.loading());
+
+  final Ref _ref;
 
   Future<int> _directorySize(Directory dir) async {
     var totalSize = 0;
@@ -45,6 +50,8 @@ class CacheNotifier extends StateNotifier<AsyncValue<String>> {
         }
       }
 
+      await DefaultCacheManager().emptyCache();
+      await _ref.read(offlineCacheProvider).clear();
       await calculateCache();
     } catch (e, st) {
       state = AsyncValue.error(e, st);

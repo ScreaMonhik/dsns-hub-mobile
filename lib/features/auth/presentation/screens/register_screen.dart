@@ -6,6 +6,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/department_provider.dart';
 import '../../data/repositories/department_repository.dart';
 import '../../data/models/department_model.dart';
+import '../../../../core/presentation/widgets/secure_password_field.dart';
 import '../../../../core/security/password_rules.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
@@ -323,41 +324,23 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  TextField(
+                  SecurePasswordField(
                     controller: _passwordController,
                     enabled: !isLoading,
                     obscureText: !_isPasswordVisible,
+                    onToggleObscure: () => setState(() => _isPasswordVisible = !_isPasswordVisible),
+                    label: 'Пароль',
                     textInputAction: TextInputAction.next,
-                    decoration: InputDecoration(
-                      labelText: 'Пароль',
-                      prefixIcon: const Icon(Icons.lock_outline),
-                      suffixIcon: IconButton(
-                        icon: Icon(_isPasswordVisible ? Icons.visibility_off_outlined : Icons.visibility_outlined),
-                        onPressed: () => setState(() => _isPasswordVisible = !_isPasswordVisible),
-                      ),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-                      filled: true,
-                      fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                    ),
                   ),
                   const SizedBox(height: 16),
-                  TextField(
+                  SecurePasswordField(
                     controller: _confirmPasswordController,
                     enabled: !isLoading,
                     obscureText: !_isConfirmPasswordVisible,
-                    textInputAction: TextInputAction.done,
+                    onToggleObscure: () => setState(() => _isConfirmPasswordVisible = !_isConfirmPasswordVisible),
+                    label: 'Підтвердження паролю',
+                    prefixIcon: Icons.lock_reset_outlined,
                     onSubmitted: (_) => _submit(),
-                    decoration: InputDecoration(
-                      labelText: 'Підтвердження паролю',
-                      prefixIcon: const Icon(Icons.lock_reset_outlined),
-                      suffixIcon: IconButton(
-                        icon: Icon(_isConfirmPasswordVisible ? Icons.visibility_off_outlined : Icons.visibility_outlined),
-                        onPressed: () => setState(() => _isConfirmPasswordVisible = !_isConfirmPasswordVisible),
-                      ),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-                      filled: true,
-                      fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                    ),
                   ),
                   const SizedBox(height: 16),
                   TextFormField(

@@ -1,3 +1,7 @@
+import 'dart:ui';
+
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,11 +9,15 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 import 'package:firebase_core/firebase_core.dart';
 import 'package:liquid_glass_easy/liquid_glass_easy.dart';
+import 'core/config/maintenance_provider.dart';
+import 'core/logging/app_logger.dart';
+import 'core/security/device_integrity.dart';
 import 'core/services/notification_service.dart';
 import 'core/router/app_router.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'core/theme/theme_provider.dart';
 import 'core/presentation/widgets/offline_banner.dart';
+import 'core/presentation/widgets/compromised_device_overlay.dart';
 import 'core/providers/connectivity_provider.dart';
 import 'features/news/presentations/providers/news_providers.dart';
 import 'features/documents/presentation/providers/document_providers.dart';
@@ -19,16 +27,28 @@ import 'features/chats/presentation/providers/chat_providers.dart';
 import 'core/security/app_lock_provider.dart';
 import 'core/presentation/widgets/app_lock_overlay.dart';
 
-void main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   await Future.wait([
     Firebase.initializeApp(),
     LiquidGlassShaders.ensureLoaded(),
     initializeDateFormatting('uk', null),
   ]);
   Intl.defaultLocale = 'uk';
-  
+
+  FlutterError.onError = (details) {
+    FlutterError.presentError(details);
+    FirebaseCrashlytics.instance.recordFlutterFatalError(details);
+  };
+  PlatformDispatcher.instance.onError = (error, stack) {
+    recordFatalError(error, stack);
+    return true;
+  };
+  await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(kReleaseMode);
+
+  await DeviceIntegrity.instance.initialize();
+
   runApp(const ProviderScope(child: DsnsHubApp()));
 }
 
@@ -50,7 +70,10 @@ class _DsnsHubAppState extends ConsumerState<DsnsHubApp> {
 
     _lifecycleListener = AppLifecycleListener(
       onPause: () => ref.read(appLockProvider.notifier).onPaused(),
-      onResume: () => ref.read(appLockProvider.notifier).onResumed(),
+      onResume: () {
+        ref.read(appLockProvider.notifier).onResumed();
+        ref.read(maintenancePollerProvider).refresh();
+      },
     );
   }
 
@@ -66,15 +89,14 @@ class _DsnsHubAppState extends ConsumerState<DsnsHubApp> {
     final themeMode = ref.watch(themeProvider);
     ref.read(notificationServiceProvider).onOpen = router.go;
 
-    // Автоматичне оновлення всіх даних при відновленні інтернету
     ref.listen<AsyncValue<List<ConnectivityResult>>>(connectivityProvider, (previous, next) {
       final prevOffline = previous?.value?.contains(ConnectivityResult.none) ?? false;
       final currentOffline = next.value?.contains(ConnectivityResult.none) ?? false;
 
       if (prevOffline && !currentOffline && next.value != null && next.value!.isNotEmpty) {
-        ref.invalidate(newsListProvider);
-        ref.invalidate(documentsListProvider);
-        ref.invalidate(projectsListProvider);
+        ref.read(newsPagingControllerProvider)?.refresh();
+        ref.read(documentsPagingControllerProvider)?.refresh();
+        ref.read(projectsPagingControllerProvider)?.refresh();
         ref.invalidate(pollsProvider);
         ref.invalidate(chatsListProvider);
       }
@@ -101,7 +123,7 @@ class _DsnsHubAppState extends ConsumerState<DsnsHubApp> {
         ),
         useMaterial3: true,
         appBarTheme: const AppBarTheme(
-          centerTitle: false, // Вирівнювання по лівому краю
+          centerTitle: false,
           elevation: 0,
           scrolledUnderElevation: 0,
           backgroundColor: Colors.transparent,
@@ -163,6 +185,7 @@ class _DsnsHubAppState extends ConsumerState<DsnsHubApp> {
                 ],
               ),
               const AppLockOverlay(),
+              const CompromisedDeviceOverlay(),
             ],
           ),
         );
