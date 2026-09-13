@@ -28,6 +28,8 @@
 	<true/>
 	
 	<!-- Deep linking for dsns:// scheme -->
+	<key>FlutterDeepLinkingEnabled</key>
+	<true/>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>

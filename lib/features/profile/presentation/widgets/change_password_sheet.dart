@@ -5,6 +5,7 @@ import '../../../../core/presentation/utils/app_snackbar.dart';
 import '../../../../core/presentation/widgets/secure_password_field.dart';
 import '../../../../core/security/password_rules.dart';
 import '../../providers/profile_provider.dart';
+import '../../../auth/providers/auth_provider.dart';
 
 void showChangePasswordSheet(BuildContext context) {
   showModalBottomSheet(
@@ -58,6 +59,7 @@ class _ChangePasswordSheetState extends ConsumerState<ChangePasswordSheet> {
 
     try {
       await ref.read(profileProvider.notifier).changePassword(oldPassword, newPassword);
+      await ref.read(authStateProvider.notifier).setForcePasswordChange(false);
       if (mounted) {
         Navigator.pop(context);
         AppSnackBar.showSuccess(context, 'Пароль успішно змінено');

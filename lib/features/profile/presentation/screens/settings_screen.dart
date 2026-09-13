@@ -6,20 +6,59 @@ import '../../../../core/presentation/utils/app_snackbar.dart';
 import '../../../../core/providers/cache_provider.dart';
 import '../../../../core/theme/theme_provider.dart';
 import '../widgets/change_password_sheet.dart';
+import '../../../auth/providers/auth_provider.dart';
 
-class SettingsScreen extends ConsumerWidget {
+class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  var _passwordSheetOpened = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _passwordSheetOpened || !ref.read(forcePasswordChangeProvider)) {
+        return;
+      }
+      _passwordSheetOpened = true;
+      showChangePasswordSheet(context);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cacheState = ref.watch(cacheProvider);
+    final forcePasswordChange = ref.watch(forcePasswordChangeProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Налаштування')),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
         children: [
+          if (forcePasswordChange) ...[
+            Card(
+              color: theme.colorScheme.errorContainer,
+              child: ListTile(
+                leading: Icon(Icons.warning_amber, color: theme.colorScheme.onErrorContainer),
+                title: Text(
+                  'Потрібно змінити тимчасовий пароль',
+                  style: TextStyle(color: theme.colorScheme.onErrorContainer),
+                ),
+                subtitle: Text(
+                  'Інші розділи будуть доступні після оновлення пароля.',
+                  style: TextStyle(color: theme.colorScheme.onErrorContainer),
+                ),
+                onTap: () => showChangePasswordSheet(context),
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
           Text(
             'Оформлення',
             style: theme.textTheme.titleSmall?.copyWith(
@@ -53,7 +92,7 @@ class SettingsScreen extends ConsumerWidget {
             title: const Text('Налаштування сповіщень'),
             subtitle: const Text('Новини, опитування, документи та чати'),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.push('/profile/settings/notifications'),
+            onTap: forcePasswordChange ? null : () => context.push('/profile/settings/notifications'),
           ),
           const SizedBox(height: 16),
           Text(
@@ -73,7 +112,7 @@ class SettingsScreen extends ConsumerWidget {
               cacheState.when(
                 data: (size) => 'Тимчасові файли та відповіді API ($size)',
                 loading: () => 'Обчислення...',
-                error: (_, __) => 'Не вдалося оцінити розмір',
+                error: (_, _) => 'Не вдалося оцінити розмір',
               ),
             ),
             onTap: cacheState.isLoading

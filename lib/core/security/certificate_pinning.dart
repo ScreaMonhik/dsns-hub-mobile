@@ -19,6 +19,58 @@ bool acceptPinnedCertificate({
   return actualHex == pin;
 }
 
+void installPinnedHttpOverrides() {
+  if (!AppConfig.isHttpsApi) {
+    return;
+  }
+  HttpOverrides.global = _PinnedHttpOverrides();
+}
+
+class _PinnedHttpOverrides extends HttpOverrides {
+  @override
+  HttpClient createHttpClient(SecurityContext? context) {
+    final client = super.createHttpClient(context);
+    client.badCertificateCallback = (_, _, _) => false;
+    client.connectionFactory = (Uri url, String? proxyHost, int? proxyPort) async {
+      if (url.scheme != 'https') {
+        return ConnectionTask.fromSocket(
+          Socket.connect(url.host, url.hasPort ? url.port : 80),
+          () {},
+        );
+      }
+
+      final port = url.hasPort ? url.port : 443;
+      final socketFuture = SecureSocket.connect(
+        url.host,
+        port,
+        context: SecurityContext(withTrustedRoots: true),
+        onBadCertificate: (_) => false,
+      ).then((socket) {
+        final cert = socket.peerCertificate;
+        if (cert == null) {
+          socket.destroy();
+          throw const HandshakeException('Missing peer certificate');
+        }
+
+        final actual = sha256.convert(cert.der).toString();
+        final accepted = acceptPinnedCertificate(
+          isRelease: kReleaseMode,
+          pin: AppConfig.normalizedSslPin,
+          actualHex: actual,
+        );
+        if (!accepted) {
+          socket.destroy();
+          throw const HandshakeException('SSL pin mismatch');
+        }
+        return socket;
+      });
+
+      return ConnectionTask.fromSocket(socketFuture, () {});
+    };
+    return client;
+  }
+}
+
 void applyCertificatePinning(Dio dio) {
   if (!AppConfig.isHttpsApi) {
     appLogger.i('SSL pinning skipped: API uses HTTP');

@@ -45,6 +45,9 @@ final routerProvider = Provider<GoRouter>((ref) {
     authStateNotifier.value = next;
     refreshTick.value++;
   });
+  ref.listen(forcePasswordChangeProvider, (previous, next) {
+    refreshTick.value++;
+  });
   ref.listen(featureFlagsProvider, (previous, next) {
     refreshTick.value++;
   });
@@ -83,6 +86,12 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isAuthenticated = authState.valueOrNull ?? false;
 
       if (!isAuthenticated && !isAuthRoute) return '/login';
+      if (isAuthenticated && ref.read(forcePasswordChangeProvider)) {
+        if (state.matchedLocation != '/profile/settings') {
+          return '/profile/settings';
+        }
+        return null;
+      }
       if (isAuthenticated && isAuthRoute) {
         return ref.read(featureFlagsProvider).newsEnabled ? '/news' : '/documents';
       }

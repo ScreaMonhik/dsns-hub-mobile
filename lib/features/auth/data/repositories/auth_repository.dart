@@ -6,12 +6,24 @@ final Provider<AuthRepository> authRepositoryProvider = Provider<AuthRepository>
   return AuthRepository(ref.watch(dioProvider));
 });
 
+class AuthSession {
+  const AuthSession({
+    required this.accessToken,
+    required this.refreshToken,
+    this.forcePasswordChange = false,
+  });
+
+  final String accessToken;
+  final String refreshToken;
+  final bool forcePasswordChange;
+}
+
 class AuthRepository {
   final Dio _dio;
 
   AuthRepository(this._dio);
 
-  Future<Map<String, String>> login(String email, String password) async {
+  Future<AuthSession> login(String email, String password) async {
     try {
       final response = await _dio.post(
         '/auth/login',
@@ -21,10 +33,12 @@ class AuthRepository {
         },
       );
       
-      return {
-        'accessToken': response.data['accessToken'] as String,
-        'refreshToken': response.data['refreshToken'] as String,
-      };
+      final user = response.data['user'];
+      return AuthSession(
+        accessToken: response.data['accessToken'] as String,
+        refreshToken: response.data['refreshToken'] as String,
+        forcePasswordChange: user is Map && user['forcePasswordChange'] == true,
+      );
     } on DioException catch (e) {
       if (e.response != null) {
         if (e.response?.statusCode == 403) {
@@ -44,6 +58,12 @@ class AuthRepository {
     } catch (e) {
       throw Exception('Невідома помилка: $e');
     }
+  }
+
+  Future<bool> fetchForcePasswordChange() async {
+    final response = await _dio.get('/users/me');
+    final data = response.data;
+    return data is Map && data['forcePasswordChange'] == true;
   }
 
   Future<Map<String, String>> refresh(String refreshToken) async {
@@ -106,7 +126,7 @@ class AuthRepository {
           'password': password,
           'firstName': firstName,
           'lastName': lastName,
-          if (departmentId != null) 'departmentId': departmentId,
+          'departmentId': ?departmentId,
         },
       );
     } on DioException catch (e) {
@@ -115,7 +135,11 @@ class AuthRepository {
           throw Exception('Перевищено ліміт спроб реєстрації. Зачекайте хвилину.');
         }
         if (e.response?.statusCode == 403) {
-          throw Exception('Відмова в реєстрації: некоректний email або користувач вже існує.');
+          final data = e.response?.data;
+          final message = (data is Map && data['message'] != null)
+              ? data['message'].toString()
+              : 'Відмова в реєстрації: некоректний email або користувач вже існує.';
+          throw Exception(message);
         }
         final data = e.response?.data;
         final message = (data is Map && data['message'] != null)

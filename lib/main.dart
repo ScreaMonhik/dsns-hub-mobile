@@ -12,6 +12,7 @@ import 'package:liquid_glass_easy/liquid_glass_easy.dart';
 import 'core/config/maintenance.dart';
 import 'core/config/maintenance_provider.dart';
 import 'core/logging/app_logger.dart';
+import 'core/security/certificate_pinning.dart';
 import 'core/security/device_integrity.dart';
 import 'core/services/notification_service.dart';
 import 'core/router/app_router.dart';
@@ -30,6 +31,7 @@ import 'core/presentation/widgets/app_lock_overlay.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  installPinnedHttpOverrides();
 
   await Future.wait([
     Firebase.initializeApp(),

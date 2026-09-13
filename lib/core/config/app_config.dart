@@ -14,7 +14,7 @@ class AppConfig {
 
   static const String androidPackageName = String.fromEnvironment(
     'ANDROID_PACKAGE_NAME',
-    defaultValue: 'com.example.dsns_hub',
+    defaultValue: 'ua.gov.dsns.hub',
   );
 
   /// Base64 SHA-256 of the *release* signing certificate (freeRASP).
@@ -25,7 +25,7 @@ class AppConfig {
 
   static const String iosBundleId = String.fromEnvironment(
     'IOS_BUNDLE_ID',
-    defaultValue: 'com.example.dsnsHub',
+    defaultValue: 'ua.gov.dsns.hub',
   );
 
   static const String iosTeamId = String.fromEnvironment(

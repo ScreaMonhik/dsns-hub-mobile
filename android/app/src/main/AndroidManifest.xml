@@ -33,13 +33,12 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
 
-            <!-- Deep linking for dsns:// scheme -->
+            <meta-data android:name="flutter_deeplinking_enabled" android:value="true" />
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <!-- Accepts URIs that begin with "dsns://" -->
-                <data android:scheme="dsns" />
+                <data android:scheme="dsns" android:host="hub.dsns.gov.ua" />
             </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.

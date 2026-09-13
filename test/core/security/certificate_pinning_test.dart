@@ -29,4 +29,11 @@ void main() {
       isFalse,
     );
   });
+
+  test('rejects a case-shifted pin so hex must match exactly', () {
+    expect(
+      acceptPinnedCertificate(isRelease: true, pin: 'DEADBEEF', actualHex: 'deadbeef'),
+      isFalse,
+    );
+  });
 }

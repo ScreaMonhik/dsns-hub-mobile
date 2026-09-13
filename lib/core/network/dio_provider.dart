@@ -46,6 +46,12 @@ final Provider<Dio> dioProvider = Provider<Dio>((ref) {
           return handler.next(e);
         }
 
+        final errorCode = e.response?.data is Map ? e.response?.data['code'] : null;
+        if (e.response?.statusCode == 403 && errorCode == 'FORCE_PASSWORD_CHANGE') {
+          ref.read(authStateProvider.notifier).setForcePasswordChange(true);
+          return handler.next(e);
+        }
+
         if (e.response?.statusCode == 429) {
           return handler.reject(
             DioException(

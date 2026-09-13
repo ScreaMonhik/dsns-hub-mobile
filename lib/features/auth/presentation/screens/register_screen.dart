@@ -114,19 +114,17 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             : _selectedDepartment!.id,
       );
       
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Реєстрація успішна! Виконується вхід...'),
-            backgroundColor: Colors.green,
-            behavior: SnackBarBehavior.floating,
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Заявку надіслано. Увійти можна після активації адміністратором.',
           ),
-        );
-      }
-      
-      // 2. Одразу логінимось. 
-      // Присвоєння токену змінить стан authState, і GoRouter автоматично перекине в додаток
-      await ref.read(authStateProvider.notifier).login(email, password);
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      context.go('/login');
       
     } catch (e) {
       if (mounted) {

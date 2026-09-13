@@ -1,4 +1,4 @@
-package com.example.dsns_hub
+package ua.gov.dsns.hub
 
 import android.os.Bundle
 import android.view.View

@@ -10,6 +10,8 @@ import '../data/repositories/auth_repository.dart';
 
 final currentTokenProvider = StateProvider<String?>((ref) => null);
 
+final forcePasswordChangeProvider = StateProvider<bool>((ref) => false);
+
 final currentUserIdProvider = Provider<String?>((ref) {
   final token = ref.watch(currentTokenProvider);
   if (token == null || token.isEmpty) return null;
@@ -41,6 +43,20 @@ class AuthNotifier extends StateNotifier<AsyncValue<bool>> {
     super.dispose();
   }
 
+  Future<void> _syncForcePasswordFlag() async {
+    try {
+      final force = await _repository.fetchForcePasswordChange();
+      await setForcePasswordChange(force);
+    } catch (_) {}
+  }
+
+  void _syncFcmTokenIfAllowed() {
+    if (_ref.read(forcePasswordChangeProvider)) {
+      return;
+    }
+    _syncFcmToken();
+  }
+
   Future<void> _syncFcmToken() async {
     try {
       final notificationService = _ref.read(notificationServiceProvider);
@@ -58,17 +74,31 @@ class AuthNotifier extends StateNotifier<AsyncValue<bool>> {
     } catch (_) {}
   }
 
-  Future<void> _persistTokens(String accessToken, String refreshToken) async {
+  Future<void> _persistTokens(
+    String accessToken,
+    String refreshToken, {
+    bool? forcePasswordChange,
+  }) async {
     await _storage.write(key: 'jwt_token', value: accessToken);
     await _storage.write(key: 'refresh_token', value: refreshToken);
+    if (forcePasswordChange != null) {
+      await setForcePasswordChange(forcePasswordChange);
+    }
     _ref.read(currentTokenProvider.notifier).state = accessToken;
+  }
+
+  Future<void> setForcePasswordChange(bool value) async {
+    await _storage.write(key: 'force_password_change', value: value ? '1' : '0');
+    _ref.read(forcePasswordChangeProvider.notifier).state = value;
   }
 
   Future<void> _clearSessionKeys() async {
     await _storage.delete(key: 'jwt_token');
     await _storage.delete(key: 'refresh_token');
+    await _storage.delete(key: 'force_password_change');
     await _storage.delete(key: 'biometric_email');
     await _storage.delete(key: 'biometric_password');
+    _ref.read(forcePasswordChangeProvider.notifier).state = false;
   }
 
   Future<bool> _refreshSession(String refreshToken) async {
@@ -96,8 +126,11 @@ class AuthNotifier extends StateNotifier<AsyncValue<bool>> {
 
       if (token != null && token.isNotEmpty && !JwtUtils.isExpired(token)) {
         _ref.read(currentTokenProvider.notifier).state = token;
+        final forceFlag = await _storage.read(key: 'force_password_change');
+        _ref.read(forcePasswordChangeProvider.notifier).state = forceFlag == '1';
         state = const AsyncValue.data(true);
-        _syncFcmToken();
+        _syncForcePasswordFlag();
+        _syncFcmTokenIfAllowed();
         return;
       }
 
@@ -124,12 +157,16 @@ class AuthNotifier extends StateNotifier<AsyncValue<bool>> {
     }
     state = const AsyncValue.loading();
     try {
-      final tokens = await _repository.login(email, password);
-      await _persistTokens(tokens['accessToken']!, tokens['refreshToken']!);
+      final session = await _repository.login(email, password);
+      await _persistTokens(
+        session.accessToken,
+        session.refreshToken,
+        forcePasswordChange: session.forcePasswordChange,
+      );
       await _storage.write(key: 'biometric_email', value: email.trim());
       await _storage.delete(key: 'biometric_password');
       state = const AsyncValue.data(true);
-      _syncFcmToken();
+      _syncFcmTokenIfAllowed();
     } catch (e, st) {
       state = AsyncValue.error(e, st);
     }
@@ -158,7 +195,8 @@ class AuthNotifier extends StateNotifier<AsyncValue<bool>> {
         throw Exception('Сесія закінчилась. Увійдіть за паролем');
       }
       state = const AsyncValue.data(true);
-      _syncFcmToken();
+      _syncForcePasswordFlag();
+      _syncFcmTokenIfAllowed();
     } catch (e, st) {
       _ref.read(currentTokenProvider.notifier).state = null;
       state = AsyncValue.error(e, st);

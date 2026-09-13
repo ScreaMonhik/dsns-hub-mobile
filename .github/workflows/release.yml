@@ -24,6 +24,8 @@ jobs:
       - name: Test
         run: flutter test
       - name: Build obfuscated APK
+        env:
+          DSNS_ALLOW_DEBUG_RELEASE: "true"
         run: >
           flutter build apk --release
           --obfuscate
@@ -31,6 +33,7 @@ jobs:
           --dart-define=API_BASE_URL=${{ secrets.API_BASE_URL }}
           --dart-define=SSL_PIN_SHA256=${{ secrets.SSL_PIN_SHA256 }}
           --dart-define=ANDROID_CERT_HASH=${{ secrets.ANDROID_CERT_HASH }}
+          --dart-define=ANDROID_PACKAGE_NAME=ua.gov.dsns.hub
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
