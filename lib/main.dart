@@ -9,6 +9,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 import 'package:firebase_core/firebase_core.dart';
 import 'package:liquid_glass_easy/liquid_glass_easy.dart';
+import 'core/config/maintenance.dart';
 import 'core/config/maintenance_provider.dart';
 import 'core/logging/app_logger.dart';
 import 'core/security/device_integrity.dart';
@@ -48,6 +49,7 @@ Future<void> main() async {
   await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(kReleaseMode);
 
   await DeviceIntegrity.instance.initialize();
+  await MaintenanceStore.instance.restore();
 
   runApp(const ProviderScope(child: DsnsHubApp()));
 }

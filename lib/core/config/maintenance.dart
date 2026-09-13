@@ -1,8 +1,13 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 const defaultMaintenanceMessage =
     'Наразі проводяться технічні роботи. Спробуйте пізніше.';
+
+const _maintenanceCacheKey = 'maintenance_status_cache';
 
 class MaintenanceStatus {
   const MaintenanceStatus({
@@ -21,7 +26,28 @@ class MaintenanceStore extends ChangeNotifier {
 
   static final MaintenanceStore instance = MaintenanceStore._();
 
+  final FlutterSecureStorage _storage = const FlutterSecureStorage(
+    aOptions: AndroidOptions(
+      encryptedSharedPreferences: true,
+      resetOnError: true,
+    ),
+    iOptions: IOSOptions(
+      accessibility: KeychainAccessibility.first_unlock,
+      synchronizable: false,
+    ),
+  );
+
   MaintenanceStatus status = const MaintenanceStatus.inactive();
+
+  Future<void> restore() async {
+    try {
+      final raw = await _storage.read(key: _maintenanceCacheKey);
+      if (raw == null || raw.isEmpty) {
+        return;
+      }
+      applyFromJson(jsonDecode(raw));
+    } catch (_) {}
+  }
 
   void apply({required bool enabled, String? message}) {
     final next = MaintenanceStatus(
@@ -35,11 +61,24 @@ class MaintenanceStore extends ChangeNotifier {
     }
     status = next;
     notifyListeners();
+    _persist();
   }
 
   void applyFromJson(Object? data) {
     final next = maintenanceStatusFromJson(data);
     apply(enabled: next.enabled, message: next.message);
+  }
+
+  Future<void> _persist() async {
+    try {
+      await _storage.write(
+        key: _maintenanceCacheKey,
+        value: jsonEncode({
+          'maintenanceMode': status.enabled,
+          'maintenanceMessage': status.message,
+        }),
+      );
+    } catch (_) {}
   }
 }
 
